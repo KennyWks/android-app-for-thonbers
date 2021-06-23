@@ -6,11 +6,10 @@ import {
   Button,
   ToastAndroid,
   Text,
+  Alert,
 } from 'react-native';
 import Spinner from 'react-native-loading-spinner-overlay';
 import ActionType from '../redux/reducer/globalActionType';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import jwtDecode from 'jwt-decode';
 import {connect} from 'react-redux';
 import {postData} from '../helpers/CRUD';
 
@@ -18,21 +17,20 @@ class UpdatePasswordAccount extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      isLogin: true,
+      isLogin: props.isLogin,
       data: {
-        id_user: false,
-        email: false,
-        role_id: false,
+        id_user: props.data.id_user,
+        email: props.data.email,
+        role_id: props.data.role_id,
       },
-      exp: 0,
-      iat: 0,
+      exp: props.exp,
+      iat: props.iat,
       formUpdatePass: {
         oldPassword: '',
         password: '',
         repeatNewPassword: '',
       },
       onLoad: false,
-      message: false,
       error: {
         oldPassword: '',
         password: '',
@@ -42,57 +40,48 @@ class UpdatePasswordAccount extends Component {
   }
 
   componentDidMount() {
-    this.getDataToken();
-    setTimeout(() => {
-      const time = Math.floor(new Date().getTime() / 1000);
-      const session = this.state.exp - this.state.iat;
-      if (time - this.state.iat > session) {
-        this.handleLogout();
-      }
-    }, 150);
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    }
   }
 
   componentWillUnmount() {
-    setTimeout(() => {
-      const time = Math.floor(new Date().getTime() / 1000);
-      const session = this.state.exp - this.state.iat;
-      if (time - this.state.iat > session) {
-        this.handleLogout();
-      }
-    }, 150);
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    }
   }
-
-  getDataToken = async () => {
-    const asyncStorage = await AsyncStorage.getItem('accessToken');
-    const token = jwtDecode(asyncStorage);
-    this.setState((prevState) => ({
-      ...prevState,
-      data: {
-        ...prevState.data,
-        id: token.data.id,
-        email: token.data.email,
-        role_id: token.data.role_id,
-      },
-      exp: token.exp,
-      iat: token.iat,
-    }));
-  };
 
   handleUpdate = async () => {
     this.setState((prevState) => ({
       ...prevState,
       onLoad: true,
+      error: {
+        ...prevState.error,
+        oldPassword: '',
+        password: '',
+        repeatNewPassword: '',
+      },
     }));
     try {
       const responseDataUser = await postData(
-        `/user_m/saler/update/password`,
+        '/user_m/saler/update/password',
         this.state.formUpdatePass,
       );
       this.setState((prevState) => ({
         ...prevState,
-        message: responseDataUser.data.msg,
+        formUpdatePass: {
+          ...prevState.formUpdatePass,
+          oldPassword: '',
+          password: '',
+          repeatNewPassword: '',
+        },
       }));
-      this.toastLogin();
+
+      this.toastLogin(responseDataUser.data.msg);
     } catch (error) {
       if (error.response.status === 500) {
         const {msg} = error.response.data;
@@ -113,7 +102,7 @@ class UpdatePasswordAccount extends Component {
           }));
         }
       } else {
-        alert(error);
+        Alert.alert(error);
       }
     }
     this.setState((prevState) => ({
@@ -122,9 +111,9 @@ class UpdatePasswordAccount extends Component {
     }));
   };
 
-  toastLogin = () => {
+  toastLogin = (message) => {
     ToastAndroid.showWithGravity(
-      this.state.message,
+      message,
       ToastAndroid.SHORT,
       ToastAndroid.BOTTOM,
     );
@@ -139,13 +128,7 @@ class UpdatePasswordAccount extends Component {
           textContent={'Memuat...'}
           textStyle={styles.spinnerTextStyle}
         />
-        <View
-          style={{
-            padding: 10,
-            borderRadius: 5,
-            marginTop: 5,
-            width: '90%',
-          }}>
+        <View style={styles.formUpdatePasswordCard}>
           <TextInput
             style={styles.textInput}
             placeholder="Password Anda..."
@@ -209,10 +192,7 @@ class UpdatePasswordAccount extends Component {
               : ''}
           </Text>
 
-          <View
-            style={{
-              marginTop: 5,
-            }}>
+          <View style={styles.buttonUpdateImage}>
             <Button
               color="#1CC88A"
               title="Ubah"
@@ -229,6 +209,13 @@ class UpdatePasswordAccount extends Component {
 const mapStateToProps = (state) => {
   return {
     isLogin: state.isLogin,
+    data: {
+      id_user: state.data.id_user,
+      email: state.data.email,
+      role_id: state.data.role_id,
+    },
+    exp: state.exp,
+    iat: state.iat,
   };
 };
 
@@ -245,7 +232,7 @@ export default connect(
 
 const styles = StyleSheet.create({
   content: {
-    backgroundColor: '#466BD9',
+    backgroundColor: '#fff',
     height: '100%',
     flexDirection: 'row',
     justifyContent: 'center',
@@ -273,5 +260,14 @@ const styles = StyleSheet.create({
   },
   spinnerTextStyle: {
     color: '#FFF',
+  },
+  formUpdatePasswordCard: {
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 5,
+    width: '90%',
+  },
+  buttonUpdateImage: {
+    marginTop: 5,
   },
 });

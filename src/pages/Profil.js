@@ -1,8 +1,6 @@
 import React, {Component} from 'react';
-import {StyleSheet, View, Text, Image, Button} from 'react-native';
+import {StyleSheet, View, Text, Image, Button, Alert} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import jwtDecode from 'jwt-decode';
 import Spinner from 'react-native-loading-spinner-overlay';
 import {connect} from 'react-redux';
 import {getData} from '../helpers/CRUD';
@@ -15,45 +13,26 @@ class ProfilScreen extends Component {
     this.state = {
       isLogin: props.isLogin,
       data: {
-        id_user: false,
-        email: false,
-        role_id: false,
+        id_user: props.data.id_user,
+        email: props.data.email,
+        role_id: props.data.role_id,
       },
-      exp: 0,
-      iat: 0,
+      exp: props.exp,
+      iat: props.iat,
       detailUser: {},
       onLoad: false,
     };
   }
 
   componentDidMount() {
-    this.getDataToken();
-    setTimeout(() => {
-      const time = Math.floor(new Date().getTime() / 1000);
-      const session = this.state.exp - this.state.iat;
-      if (time - this.state.iat > session) {
-        this.handleLogout();
-      } else {
-        this.getDataUser();
-      }
-    }, 150);
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    } else {
+      this.getDataUser();
+    }
   }
-
-  getDataToken = async () => {
-    const asyncStorage = await AsyncStorage.getItem('accessToken');
-    const token = jwtDecode(asyncStorage);
-    this.setState((prevState) => ({
-      ...prevState,
-      data: {
-        ...prevState.data,
-        id: token.data.id,
-        email: token.data.email,
-        role_id: token.data.role_id,
-      },
-      exp: token.exp,
-      iat: token.iat,
-    }));
-  };
 
   getDataUser = async () => {
     this.setState((prevState) => ({
@@ -61,13 +40,13 @@ class ProfilScreen extends Component {
       onLoad: true,
     }));
     try {
-      const responseDataUser = await getData(`/user_m/saler`);
+      const responseDataUser = await getData('/user_m/saler');
       this.setState((prevState) => ({
         ...prevState,
         detailUser: responseDataUser.data,
       }));
     } catch (error) {
-      alert(error);
+      Alert.alert(error);
     }
     this.setState((prevState) => ({
       ...prevState,
@@ -76,11 +55,10 @@ class ProfilScreen extends Component {
   };
 
   handleLogout = async () => {
-    await AsyncStorage.removeItem('accessToken');
     this.props.handleLogout();
     setTimeout(() => {
       this.props.navigation.navigate('Login');
-    }, alert('Sesi anda telah berakhir, silahkan login kembali'));
+    }, Alert.alert('Sesi anda telah berakhir, silahkan login kembali'));
   };
 
   render() {
@@ -95,36 +73,16 @@ class ProfilScreen extends Component {
         {Object.keys(detailUser).length > 0 && (
           <View style={styles.content}>
             <View>
-              <Text
-                style={{
-                  fontSize: 20,
-                  color: '#858796',
-                  lineHeight: 24,
-                  fontWeight: '400',
-                  marginBottom: 6,
-                }}>
+              <Text style={styles.profilCard}>
                 Selamat datang {detailUser.data.name}
               </Text>
             </View>
 
             <View style={styles.card}>
-              <View
-                style={{
-                  backgroundColor: '#E7E7E7',
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  width: '100%',
-                }}>
+              <View style={styles.detailProfilImageCard}>
                 <Image source={Logo} style={styles.logo} />
               </View>
-              <View
-                style={{
-                  backgroundColor: '#fff',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}>
+              <View style={styles.detailProfilCard}>
                 <Text style={styles.text}>{detailUser.data.username}</Text>
                 <Text style={styles.text}>{detailUser.data.hp}</Text>
 
@@ -165,6 +123,13 @@ class ProfilScreen extends Component {
 const mapStateToProps = (state) => {
   return {
     isLogin: state.isLogin,
+    data: {
+      id_user: state.data.id_user,
+      email: state.data.email,
+      role_id: state.data.role_id,
+    },
+    exp: state.exp,
+    iat: state.iat,
   };
 };
 
@@ -218,5 +183,25 @@ const styles = StyleSheet.create({
   footerText: {
     justifyContent: 'center',
     alignItems: 'flex-end',
+  },
+  profilCard: {
+    fontSize: 16,
+    color: '#858796',
+    lineHeight: 24,
+    fontWeight: '400',
+    marginBottom: 6,
+  },
+  detailProfilCard: {
+    backgroundColor: '#fff',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailProfilImageCard: {
+    backgroundColor: '#E7E7E7',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
 });

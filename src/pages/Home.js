@@ -1,8 +1,6 @@
 import React, {Component} from 'react';
-import {StyleSheet, View, Text} from 'react-native';
+import {StyleSheet, View, Text, Alert} from 'react-native';
 import {connect} from 'react-redux';
-import jwtDecode from 'jwt-decode';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import ActionType from '../redux/reducer/globalActionType';
 import Menu, {MenuItem, MenuDivider} from 'react-native-material-menu';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -16,34 +14,29 @@ class HomeScreen extends Component {
     this.state = {
       isLogin: props.isLogin,
       data: {
-        id_user: false,
-        email: false,
-        role_id: false,
+        id_user: props.data.id_user,
+        email: props.data.email,
+        role_id: props.data.role_id,
       },
-      exp: 0,
-      iat: 0,
+      exp: props.exp,
+      iat: props.iat,
     };
   }
 
   componentDidMount() {
-    this.getDataToken();
-    setTimeout(() => {
-      const time = Math.floor(new Date().getTime() / 1000);
-      const session = this.state.exp - this.state.iat;
-      if (time - this.state.iat > session) {
-        this.handleLogout();
-      }
-    }, 150);
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    }
   }
 
   componentWillUnmount() {
-    setTimeout(() => {
-      const time = Math.floor(new Date().getTime() / 1000);
-      const session = this.state.exp - this.state.iat;
-      if (time - this.state.iat > session) {
-        this.handleLogout();
-      }
-    }, 150);
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    }
   }
 
   _menu = null;
@@ -60,39 +53,27 @@ class HomeScreen extends Component {
     this._menu.show();
   };
 
-  getDataToken = async () => {
-    const asyncStorage = await AsyncStorage.getItem('accessToken');
-    const token = jwtDecode(asyncStorage);
-    this.setState((prevState) => ({
-      ...prevState,
-      data: {
-        ...prevState.data,
-        id: token.data.id,
-        email: token.data.email,
-        role_id: token.data.role_id,
-      },
-      exp: token.exp,
-      iat: token.iat,
-    }));
-  };
-
-  redirectToProfil = () => {
+  handleRedirectToProfil = () => {
     this.hideMenu();
     this.props.navigation.navigate('Profil');
   };
 
+  handleRedirectToDataKunjunganOffline = () => {
+    this.hideMenu();
+    // this.props.navigation.navigate('DataKunjunganOffline');
+  };
+
   handleLogout = async () => {
     this.hideMenu();
-    await AsyncStorage.removeItem('accessToken');
     this.props.handleLogout();
     setTimeout(() => {
       this.props.navigation.navigate('Login');
-    }, alert('Sesi anda telah berakhir, silahkan login kembali'));
+    }, Alert.alert('Sesi anda telah berakhir, silahkan login kembali'));
   };
 
   render() {
     return (
-      <View style={{flex: 1, flexDirection: 'column'}}>
+      <View style={styles.container}>
         <View style={styles.appBar}>
           <Menu
             ref={this.setMenuRef}
@@ -101,8 +82,13 @@ class HomeScreen extends Component {
                 <MaterialCommunityIcons name="dots-vertical" size={25} />
               </Text>
             }>
-            <MenuItem onPress={this.redirectToProfil}>Profil saya</MenuItem>
+            <MenuItem onPress={this.handleRedirectToDataKunjunganOffline}>
+              Kunjungan - Offline
+            </MenuItem>
             <MenuDivider />
+            <MenuItem onPress={this.handleRedirectToProfil}>
+              Profil saya
+            </MenuItem>
             <MenuItem onPress={this.handleLogout}>Keluar</MenuItem>
           </Menu>
         </View>
@@ -120,7 +106,11 @@ const BottomTab = () => {
     <Tab.Navigator
       initialRouteName="Kunjungan"
       tabBarOptions={{
-        activeTintColor: '#e91e63',
+        activeTintColor: '#fff',
+        inactiveTintColor: 'lightgray',
+        style: {
+          backgroundColor: '#466BD9',
+        },
       }}>
       <Tab.Screen
         name="Kunjungan"
@@ -157,6 +147,13 @@ const BottomTab = () => {
 const mapStateToProps = (state) => {
   return {
     isLogin: state.isLogin,
+    data: {
+      id_user: state.data.id_user,
+      email: state.data.email,
+      role_id: state.data.role_id,
+    },
+    exp: state.exp,
+    iat: state.iat,
   };
 };
 
@@ -169,13 +166,20 @@ const mapDispatchToProps = (dispatch) => {
 export default connect(mapStateToProps, mapDispatchToProps)(HomeScreen);
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    flexDirection: 'column',
+  },
   appBar: {
     backgroundColor: '#fff',
-    height: '8%',
+    height: '11%',
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
     padding: 15,
+    borderBottomWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'lightgrey',
   },
   bottomTab: {
     height: '10%',

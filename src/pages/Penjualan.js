@@ -1,6 +1,5 @@
 import React, {Component} from 'react';
 import {StyleSheet, View, Text} from 'react-native';
-import {style} from 'styled-system';
 
 class Penjualan extends Component {
   render() {
@@ -16,7 +15,7 @@ export default Penjualan;
 
 const styles = StyleSheet.create({
   content: {
-    backgroundColor: '#466BD9',
+    backgroundColor: '#fff',
     height: '100%',
     flexDirection: 'row',
     justifyContent: 'center',

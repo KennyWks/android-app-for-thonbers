@@ -9,13 +9,14 @@ import {
   Text,
   Alert,
 } from 'react-native';
+import ActionType from '../redux/reducer/globalActionType';
 import {connect} from 'react-redux';
 import Spinner from 'react-native-loading-spinner-overlay';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {postData} from '../helpers/CRUD';
-import ActionType from '../redux/reducer/globalActionType';
 import Logo from '../assets/img/user.png';
+import {style} from 'styled-system';
 
 class LoginScreen extends Component {
   constructor(props) {
@@ -31,13 +32,11 @@ class LoginScreen extends Component {
         password: '',
       },
       onSubmit: false,
-      message: false,
-      token: '',
     };
   }
 
   componentDidMount() {
-    if (this.props.isLogin) {
+    if (this.state.isLogin) {
       this.props.navigation.navigate('Home');
     }
   }
@@ -52,8 +51,7 @@ class LoginScreen extends Component {
     formData.append('username', this.state.form.username);
     formData.append('password', this.state.form.password);
     try {
-      const response = await postData(`/auth_m/login`, formData);
-      // console.log(response);
+      const response = await postData('/auth_m/login', formData);
       if (response.data.data) {
         this.setState((prevState) => ({
           ...prevState,
@@ -65,21 +63,11 @@ class LoginScreen extends Component {
 
         await AsyncStorage.setItem('accessToken', response.data.data);
 
-        this.setState((prevState) => ({
-          ...prevState,
-          message: response.data.msg,
-          token: response.data.data,
-        }));
-
         this.props.handleLogin();
-        this.toastLogin();
+        this.toastMessage(response.data.msg);
         this.redirectPage();
       } else {
-        this.setState((prevState) => ({
-          ...prevState,
-          message: response.data.msg,
-        }));
-        this.toastLogin();
+        this.toastMessage(response.data.msg);
       }
     } catch (error) {
       if (error.response.status === 500) {
@@ -93,7 +81,7 @@ class LoginScreen extends Component {
           },
         }));
       } else {
-        alert(error);
+        Alert.alert(error);
       }
     }
     this.setState((prevState) => ({
@@ -114,9 +102,9 @@ class LoginScreen extends Component {
     });
   };
 
-  toastLogin = () => {
+  toastMessage = (message) => {
     ToastAndroid.showWithGravity(
-      this.state.message,
+      message,
       ToastAndroid.SHORT,
       ToastAndroid.BOTTOM,
     );
@@ -139,12 +127,7 @@ class LoginScreen extends Component {
         <View>
           <Image source={Logo} style={styles.logo} />
         </View>
-        <View
-          style={{
-            backgroundColor: '#FFF',
-            padding: 13,
-            borderRadius: 5,
-          }}>
+        <View style={styles.formSigninCard}>
           <TextInput
             style={styles.textInput}
             placeholder="Username..."
@@ -186,10 +169,7 @@ class LoginScreen extends Component {
               : ''}
           </Text>
 
-          <View
-            style={{
-              marginTop: 5,
-            }}>
+          <View style={style.buttonSigninView}>
             <Button
               color="#466BD9"
               title="Masuk"
@@ -257,5 +237,13 @@ const styles = StyleSheet.create({
   },
   spinnerTextStyle: {
     color: '#FFF',
+  },
+  formSigninCard: {
+    backgroundColor: '#FFF',
+    padding: 13,
+    borderRadius: 5,
+  },
+  buttonSigninView: {
+    marginTop: 5,
   },
 });

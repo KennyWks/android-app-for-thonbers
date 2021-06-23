@@ -6,11 +6,10 @@ import {
   Button,
   ToastAndroid,
   Text,
+  Alert,
 } from 'react-native';
 import ActionType from '../redux/reducer/globalActionType';
 import Spinner from 'react-native-loading-spinner-overlay';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import jwtDecode from 'jwt-decode';
 import {connect} from 'react-redux';
 import {getData, postData} from '../helpers/CRUD';
 
@@ -20,19 +19,18 @@ class UpdateProfil extends Component {
     this.state = {
       isLogin: props.isLogin,
       data: {
-        id_user: false,
-        email: false,
-        role_id: false,
+        id_user: props.data.id_user,
+        email: props.data.email,
+        role_id: props.data.role_id,
       },
-      exp: 0,
-      iat: 0,
+      exp: props.exp,
+      iat: props.iat,
       detailUser: {},
       formUpdateProfil: {
         name: '',
         hp: '',
       },
       onLoad: false,
-      message: false,
       error: {
         name: '',
         hp: '',
@@ -41,43 +39,22 @@ class UpdateProfil extends Component {
   }
 
   componentDidMount() {
-    this.getDataToken();
-    setTimeout(() => {
-      const time = Math.floor(new Date().getTime() / 1000);
-      const session = this.state.exp - this.state.iat;
-      if (time - this.state.iat > session) {
-        this.handleLogout();
-      } else {
-        this.getDataUser();
-      }
-    }, 150);
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    } else {
+      this.getDataUser();
+    }
   }
 
   componentWillUnmount() {
-    setTimeout(() => {
-      const time = Math.floor(new Date().getTime() / 1000);
-      const session = this.state.exp - this.state.iat;
-      if (time - this.state.iat > session) {
-        this.handleLogout();
-      }
-    }, 150);
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    }
   }
-
-  getDataToken = async () => {
-    const asyncStorage = await AsyncStorage.getItem('accessToken');
-    const token = jwtDecode(asyncStorage);
-    this.setState((prevState) => ({
-      ...prevState,
-      data: {
-        ...prevState.data,
-        id: token.data.id,
-        email: token.data.email,
-        role_id: token.data.role_id,
-      },
-      exp: token.exp,
-      iat: token.iat,
-    }));
-  };
 
   getDataUser = async () => {
     this.setState((prevState) => ({
@@ -85,7 +62,7 @@ class UpdateProfil extends Component {
       onLoad: true,
     }));
     try {
-      const responseDataUser = await getData(`/user_m/saler`);
+      const responseDataUser = await getData('/user_m/saler');
       this.setState((prevState) => ({
         ...prevState,
         formUpdateProfil: {
@@ -95,7 +72,7 @@ class UpdateProfil extends Component {
         },
       }));
     } catch (error) {
-      alert(error);
+      Alert.alert(error);
     }
     this.setState((prevState) => ({
       ...prevState,
@@ -104,11 +81,10 @@ class UpdateProfil extends Component {
   };
 
   handleLogout = async () => {
-    await AsyncStorage.removeItem('accessToken');
     this.props.handleLogout();
     setTimeout(() => {
       this.props.navigation.navigate('Login');
-    }, alert('Sesi anda telah berakhir, silahkan login kembali'));
+    }, Alert.alert('Sesi anda telah berakhir, silahkan login kembali'));
   };
 
   handleUpdate = async () => {
@@ -118,15 +94,11 @@ class UpdateProfil extends Component {
     }));
     try {
       const responseDataUser = await postData(
-        `/user_m/saler/update/profil`,
+        '/user_m/saler/update/profil',
         this.state.formUpdateProfil,
       );
-      this.setState((prevState) => ({
-        ...prevState,
-        message: responseDataUser.data.msg,
-      }));
       this.getDataUser();
-      this.toastLogin();
+      this.toastLogin(responseDataUser.data.msg);
     } catch (error) {
       if (error.response.status === 500) {
         const {msg} = error.response.data;
@@ -141,7 +113,7 @@ class UpdateProfil extends Component {
           }));
         }
       } else {
-        alert(error);
+        Alert.alert(error);
       }
     }
     this.setState((prevState) => ({
@@ -150,9 +122,9 @@ class UpdateProfil extends Component {
     }));
   };
 
-  toastLogin = () => {
+  toastLogin = (message) => {
     ToastAndroid.showWithGravity(
-      this.state.message,
+      message,
       ToastAndroid.SHORT,
       ToastAndroid.BOTTOM,
     );
@@ -167,13 +139,7 @@ class UpdateProfil extends Component {
           textContent={'Memuat...'}
           textStyle={styles.spinnerTextStyle}
         />
-        <View
-          style={{
-            padding: 10,
-            borderRadius: 5,
-            marginTop: 5,
-            width: '90%',
-          }}>
+        <View style={styles.formUpdateProfil}>
           <TextInput
             style={styles.textInput}
             placeholder="Nama..."
@@ -214,10 +180,7 @@ class UpdateProfil extends Component {
               : ''}
           </Text>
 
-          <View
-            style={{
-              marginTop: 5,
-            }}>
+          <View style={styles.buttonUpdateView}>
             <Button
               color="#1CC88A"
               title="Ubah"
@@ -234,6 +197,13 @@ class UpdateProfil extends Component {
 const mapStateToProps = (state) => {
   return {
     isLogin: state.isLogin,
+    data: {
+      id_user: state.data.id_user,
+      email: state.data.email,
+      role_id: state.data.role_id,
+    },
+    exp: state.exp,
+    iat: state.iat,
   };
 };
 
@@ -247,7 +217,7 @@ export default connect(mapStateToProps, mapDispatchToProps)(UpdateProfil);
 
 const styles = StyleSheet.create({
   content: {
-    backgroundColor: '#466BD9',
+    backgroundColor: '#fff',
     height: '100%',
     flexDirection: 'row',
     justifyContent: 'center',
@@ -275,5 +245,14 @@ const styles = StyleSheet.create({
   },
   spinnerTextStyle: {
     color: '#FFF',
+  },
+  formUpdateProfil: {
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 5,
+    width: '90%',
+  },
+  buttonUpdateView: {
+    marginTop: 5,
   },
 });
