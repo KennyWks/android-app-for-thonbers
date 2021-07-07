@@ -7,6 +7,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Penjualan from './Penjualan';
 import Kunjungan from './Kunjungan';
+import {openDatabase} from 'react-native-sqlite-storage';
+
+let db = openDatabase({name: 'thonbersDatabase.db'});
 
 class HomeScreen extends Component {
   constructor(props) {
@@ -29,7 +32,27 @@ class HomeScreen extends Component {
     if (time - this.state.iat > session) {
       this.handleLogout();
     }
+    this.handleDatabase();
   }
+
+  handleDatabase = () => {
+    db.transaction(function (txn) {
+      txn.executeSql(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='tbl_customer'",
+        [],
+        function (tx, res) {
+          // console.log('item:', res.rows.length);
+          if (res.rows.length == 0) {
+            txn.executeSql('DROP TABLE IF EXISTS tbl_customer', []);
+            txn.executeSql(
+              'CREATE TABLE IF NOT EXISTS tbl_customer(id INTEGER PRIMARY KEY AUTOINCREMENT, nama VARCHAR(50), tempat_lahir VARCHAR(50), tgl_lahir VARCHAR(10), no_hp VARCHAR(12), email VARCHAR(20), agama VARCHAR(20), jk VARCHAR(9), alamat VARCHAR(100), foto VARCHAR(255), latitude VARCHAR(255), longitude VARCHAR(255), created_by INT(1))',
+              [],
+            );
+          }
+        },
+      );
+    });
+  };
 
   componentWillUnmount() {
     const time = Math.floor(new Date().getTime() / 1000);
@@ -60,7 +83,7 @@ class HomeScreen extends Component {
 
   handleRedirectToDataKunjunganOffline = () => {
     this.hideMenu();
-    // this.props.navigation.navigate('DataKunjunganOffline');
+    this.props.navigation.navigate('Get All Customer');
   };
 
   handleLogout = async () => {
@@ -83,7 +106,7 @@ class HomeScreen extends Component {
               </Text>
             }>
             <MenuItem onPress={this.handleRedirectToDataKunjunganOffline}>
-              Kunjungan - Offline
+              Pelanggan - Offline
             </MenuItem>
             <MenuDivider />
             <MenuItem onPress={this.handleRedirectToProfil}>

@@ -21,6 +21,9 @@ import {postData} from '../helpers/CRUD';
 import {Formik} from 'formik';
 import Spinner from 'react-native-loading-spinner-overlay';
 import * as Yup from 'yup';
+import {openDatabase} from 'react-native-sqlite-storage';
+
+let db = openDatabase({name: 'thonbersDatabase.db'});
 
 const kunjunganFormSchema = Yup.object().shape({
   no_hp: Yup.string()
@@ -52,7 +55,7 @@ class Kunjungan extends Component {
         email: '',
         alamat: '',
         foto: '',
-        created_by: props.data.id_user,
+        created_by: '',
       },
       show: false,
       dataCheckNumber: {
@@ -66,14 +69,13 @@ class Kunjungan extends Component {
   }
 
   componentDidMount() {
-    this.getLocation();
     this.props.handleConnections();
   }
 
   getLocation = () => {
     GetLocation.getCurrentPosition({
       enableHighAccuracy: true,
-      timeout: 25000,
+      timeout: 15000,
     })
       .then((location) => {
         this.setState((prevState) => ({
@@ -102,60 +104,43 @@ class Kunjungan extends Component {
       });
   };
 
-  handleAddKunjungan = () => {
+  handleAddKunjungan = async () => {
+    await this.getLocation();
     const {foto, longitude, latitude} = this.state.form;
     if (longitude && latitude) {
       if (foto) {
         if (this.state.isConnected) {
-          this.handleAddKunjunganOnlineMode();
+          // await this.handleAddKunjunganOnlineMode();
+          await this.handleAddKunjunganOfflineMode();
         } else {
-          this.handleAddKunjunganOfflineMode();
+          await this.handleAddKunjunganOfflineMode();
         }
       } else {
         Alert.alert('Anda belum memilih foto!');
       }
     } else {
       Alert.alert('Lokasi anda tidak valid! Coba lagi.');
-      this.props.handleConnections();
     }
   };
 
-  handleSetContentFormData = (params) => {
-    if (params === true) {
-      const {form} = this.state;
-      let formData = new FormData();
-      formData.append('latitude ', form.latitude);
-      formData.append('longitude ', form.longitude);
-      formData.append('no_hp ', form.no_hp);
-      formData.append('nama ', form.nama);
-      formData.append('tempat_lahir ', form.tempat_lahir);
-      formData.append('tgl_lahir ', form.tgl_lahir);
-      formData.append('agama ', form.agama);
-      formData.append('jk ', form.jk);
-      formData.append('email ', form.email);
-      formData.append('alamat ', form.alamat);
-      formData.append('foto ', form.foto);
-      formData.append('created_by ', form.created_by);
-      return formData;
-    } else {
-      this.setState((prevState) => ({
-        ...prevState,
-        form: {
-          ...prevState.form,
-          latitude: '',
-          longitude: '',
-          no_hp: '',
-          nama: '',
-          tempat_lahir: '',
-          tgl_lahir: '',
-          agama: '',
-          jk: '',
-          email: '',
-          alamat: '',
-          foto: '',
-        },
-      }));
-    }
+  handleSetContentFormData = () => {
+    this.setState((prevState) => ({
+      ...prevState,
+      form: {
+        ...prevState.form,
+        latitude: '',
+        longitude: '',
+        no_hp: '',
+        nama: '',
+        tempat_lahir: '',
+        tgl_lahir: null,
+        agama: '',
+        jk: '',
+        email: '',
+        alamat: '',
+        foto: '',
+      },
+    }));
   };
 
   handleAddKunjunganOnlineMode = async () => {
@@ -163,22 +148,36 @@ class Kunjungan extends Component {
       ...prevState,
       onSubmit: true,
     }));
-    const formData = this.handleSetContentFormData(true);
+
+    const {form} = this.state;
+    const dateOfBirth = new Date(form.tgl_lahir)
+      .toISOString()
+      .slice(0, 10)
+      .replace('T', ' ');
+
+    let formData = new FormData();
+    formData.append('latitude', form.latitude);
+    formData.append('longitude', form.longitude);
+    formData.append('no_hp', form.no_hp);
+    formData.append('nama', form.nama);
+    formData.append('tempat_lahir', form.tempat_lahir);
+    formData.append('tgl_lahir', dateOfBirth);
+    formData.append('agama', form.agama);
+    formData.append('jk', form.jk);
+    formData.append('email', form.email);
+    formData.append('alamat', form.alamat);
+    formData.append('created_by', form.created_by);
+    formData.append('foto', form.foto);
+
     try {
       const response = await postData(
         '/user_m/kunjungan/add/customer',
         formData,
       );
-      console.log(response);
-      if (response.data.data) {
-        await this.handleSetContentFormData(false);
-        this.toastMessage(response.data.msg);
-      } else {
-        this.toastMessage(response.data.msg);
-      }
+      await this.handleSetContentFormData();
+      this.toastMessage(response.data.msg);
     } catch (error) {
       Alert.alert('Error! silahkan coba lagi.');
-      console.log(error.response);
     }
     this.setState((prevState) => ({
       ...prevState,
@@ -187,7 +186,56 @@ class Kunjungan extends Component {
   };
 
   handleAddKunjunganOfflineMode = () => {
-    console.log('offline');
+    const {
+      nama,
+      tempat_lahir,
+      tgl_lahir,
+      no_hp,
+      email,
+      agama,
+      jk,
+      alamat,
+      foto,
+      latitude,
+      longitude,
+      created_by,
+    } = this.state.form;
+    db.transaction(function (tx) {
+      tx.executeSql(
+        'INSERT INTO tbl_customer (nama, tempat_lahir, tgl_lahir, no_hp, email, agama, jk, alamat, foto, latitude, longitude created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        [
+          nama,
+          tempat_lahir,
+          tgl_lahir,
+          no_hp,
+          email,
+          agama,
+          jk,
+          alamat,
+          foto.name,
+          latitude,
+          longitude,
+          created_by,
+        ],
+        (tx, results) => {
+          console.log('Results', results.rowsAffected);
+          if (results.rowsAffected > 0) {
+            Alert.alert(
+              'Success',
+              'Pelangan berhasil ditambahkan',
+              [
+                {
+                  text: 'Ok',
+                },
+              ],
+              {cancelable: false},
+            );
+          } else {
+            Alert.alert('Pelangan gagal ditambahkan');
+          }
+        },
+      );
+    });
   };
 
   toastMessage = (message) => {
@@ -316,6 +364,7 @@ class Kunjungan extends Component {
                     jk: values.jk,
                     email: values.email,
                     alamat: values.alamat,
+                    created_by: this.props.data.id_user,
                   },
                 }));
                 this.handleAddKunjungan();
@@ -409,19 +458,22 @@ class Kunjungan extends Component {
                   </View>
                   {show && (
                     <RNDatePicker
-                      testID="datePicker"
-                      value={new Date(1950, 1, 1)}
+                      testID="dateTimePicker"
                       mode="date"
-                      minimumDate={new Date(1950, 1, 1)}
-                      maximumDate={new Date(2022, 1, 1)}
+                      value={new Date()}
+                      minimumDate={new Date(1950, 0, 1)}
+                      maximumDate={new Date()}
                       is24Hour={true}
                       display="default"
-                      onChange={(value) => {
-                        const date = new Date(value.nativeEvent.timestamp)
-                          .toISOString()
-                          .slice(0, 10)
-                          .replace('T', ' ');
-                        props.setFieldValue('tgl_lahir', date);
+                      onChange={(event, selectedDate) => {
+                        const currentDate = selectedDate || new Date();
+                        props.setFieldValue('tgl_lahir', currentDate);
+                        this.setState((prevState) => ({
+                          ...prevState,
+                          show: false,
+                        }));
+                      }}
+                      onBlur={() => {
                         this.setState((prevState) => ({
                           ...prevState,
                           show: false,

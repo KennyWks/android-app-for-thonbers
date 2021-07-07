@@ -7,6 +7,7 @@ import HomeScreen from './Home';
 import ProfilScreen from './Profil';
 import UpdateProfilScreen from './UpdateProfil';
 import UpdatePasswordAccountScreen from './UpdatePasswordAccount';
+import Customer from './Customer';
 
 const Stack = createStackNavigator();
 
@@ -31,6 +32,7 @@ class Navigation extends Component {
             name="Update Password"
             component={UpdatePasswordAccountScreen}
           />
+          <Stack.Screen name="Get All Customer" component={Customer} />
         </Stack.Navigator>
       </NavigationContainer>
     );
