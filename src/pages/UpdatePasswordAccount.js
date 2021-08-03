@@ -1,17 +1,10 @@
 import React, {Component} from 'react';
-import {
-  StyleSheet,
-  View,
-  TextInput,
-  Button,
-  ToastAndroid,
-  Text,
-  Alert,
-} from 'react-native';
-import Spinner from 'react-native-loading-spinner-overlay';
+import {StyleSheet, View, TextInput, Button, Text, Alert} from 'react-native';
+import Spinner from '../components/SpinnerScreen';
 import ActionType from '../redux/reducer/globalActionType';
 import {connect} from 'react-redux';
 import {postData} from '../helpers/CRUD';
+import {toastMessage} from '../components/Toast';
 
 class UpdatePasswordAccount extends Component {
   constructor(props) {
@@ -39,15 +32,7 @@ class UpdatePasswordAccount extends Component {
     };
   }
 
-  componentDidMount() {
-    const time = Math.floor(new Date().getTime() / 1000);
-    const session = this.state.exp - this.state.iat;
-    if (time - this.state.iat > session) {
-      this.handleLogout();
-    }
-  }
-
-  componentWillUnmount() {
+  componentDidUpdate() {
     const time = Math.floor(new Date().getTime() / 1000);
     const session = this.state.exp - this.state.iat;
     if (time - this.state.iat > session) {
@@ -81,11 +66,11 @@ class UpdatePasswordAccount extends Component {
         },
       }));
 
-      this.toastLogin(responseDataUser.data.msg);
+      toastMessage(responseDataUser.data.msg);
     } catch (error) {
-      if (error.response.status === 500) {
+      if (error.response.status !== 404) {
         const {msg} = error.response.data;
-        if (msg !== undefined) {
+        if (msg.oldPassword || msg.password || msg.repeatNewPassword) {
           const oldPassword = msg.oldPassword ? msg.oldPassword : '';
           const password = msg.password ? msg.password : '';
           const repeatNewPassword = msg.repeatNewPassword
@@ -100,9 +85,11 @@ class UpdatePasswordAccount extends Component {
               repeatNewPassword: `${repeatNewPassword}`,
             },
           }));
+        } else {
+          Alert.alert(msg);
         }
       } else {
-        Alert.alert(error);
+        Alert.alert('Something error!');
       }
     }
     this.setState((prevState) => ({
@@ -111,23 +98,12 @@ class UpdatePasswordAccount extends Component {
     }));
   };
 
-  toastLogin = (message) => {
-    ToastAndroid.showWithGravity(
-      message,
-      ToastAndroid.SHORT,
-      ToastAndroid.BOTTOM,
-    );
-  };
-
   render() {
-    const {formUpdatePass} = this.state;
+    const {formUpdatePass, onLoad} = this.state;
     return (
       <View style={styles.content}>
-        <Spinner
-          visible={this.state.onLoad}
-          textContent={'Memuat...'}
-          textStyle={styles.spinnerTextStyle}
-        />
+        <Spinner visible={onLoad} textContent="Memproses..." />
+
         <View style={styles.formUpdatePasswordCard}>
           <TextInput
             style={styles.textInput}

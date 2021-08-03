@@ -1,17 +1,10 @@
 import React, {Component} from 'react';
-import {
-  StyleSheet,
-  View,
-  TextInput,
-  Button,
-  ToastAndroid,
-  Text,
-  Alert,
-} from 'react-native';
+import {StyleSheet, View, TextInput, Button, Text, Alert} from 'react-native';
 import ActionType from '../redux/reducer/globalActionType';
-import Spinner from 'react-native-loading-spinner-overlay';
+import Spinner from '../components/SpinnerScreen';
 import {connect} from 'react-redux';
 import {getData, postData} from '../helpers/CRUD';
+import {toastMessage} from '../components/Toast';
 
 class UpdateProfil extends Component {
   constructor(props) {
@@ -48,7 +41,7 @@ class UpdateProfil extends Component {
     }
   }
 
-  componentWillUnmount() {
+  componentDidUpdate() {
     const time = Math.floor(new Date().getTime() / 1000);
     const session = this.state.exp - this.state.iat;
     if (time - this.state.iat > session) {
@@ -72,7 +65,12 @@ class UpdateProfil extends Component {
         },
       }));
     } catch (error) {
-      Alert.alert(error);
+      if (error.response.status !== 404) {
+        const {msg} = error.response.data;
+        Alert.alert(msg);
+      } else {
+        Alert.alert('Something error!');
+      }
     }
     this.setState((prevState) => ({
       ...prevState,
@@ -98,11 +96,11 @@ class UpdateProfil extends Component {
         this.state.formUpdateProfil,
       );
       this.getDataUser();
-      this.toastLogin(responseDataUser.data.msg);
+      toastMessage(responseDataUser.data.msg);
     } catch (error) {
-      if (error.response.status === 500) {
+      if (error.response.status !== 404) {
         const {msg} = error.response.data;
-        if (msg !== undefined) {
+        if (msg.name || msg.hp) {
           this.setState((prevState) => ({
             ...prevState,
             error: {
@@ -111,9 +109,11 @@ class UpdateProfil extends Component {
               hp: `${msg.hp}`,
             },
           }));
+        } else {
+          Alert.alert('Profil gagal diubah');
         }
       } else {
-        Alert.alert(error);
+        Alert.alert('Something error!');
       }
     }
     this.setState((prevState) => ({
@@ -122,24 +122,14 @@ class UpdateProfil extends Component {
     }));
   };
 
-  toastLogin = (message) => {
-    ToastAndroid.showWithGravity(
-      message,
-      ToastAndroid.SHORT,
-      ToastAndroid.BOTTOM,
-    );
-  };
-
   render() {
-    const {formUpdateProfil} = this.state;
+    const {formUpdateProfil, onLoad} = this.state;
     return (
       <View style={styles.content}>
-        <Spinner
-          visible={this.state.onLoad}
-          textContent={'Memuat...'}
-          textStyle={styles.spinnerTextStyle}
-        />
+        <Spinner visible={onLoad} textContent="Memproses..." />
+
         <View style={styles.formUpdateProfil}>
+          <Text>Nama</Text>
           <TextInput
             style={styles.textInput}
             placeholder="Nama..."
@@ -160,6 +150,7 @@ class UpdateProfil extends Component {
               : ''}
           </Text>
 
+          <Text>Nomor HP</Text>
           <TextInput
             style={styles.textInput}
             placeholder="Nomor HP..."

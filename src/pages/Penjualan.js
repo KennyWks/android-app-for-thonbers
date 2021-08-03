@@ -16,7 +16,7 @@ export default Penjualan;
 const styles = StyleSheet.create({
   content: {
     backgroundColor: '#fff',
-    height: '100%',
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

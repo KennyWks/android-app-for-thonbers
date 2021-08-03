@@ -43,7 +43,7 @@ const setIsLogin = async () => {
     globalState.exp = token.exp;
     globalState.iat = token.iat;
   } catch (error) {
-    console.log(error);
+    // console.log(error);
   }
 };
 
@@ -57,7 +57,7 @@ const setIsLogout = async () => {
     globalState.exp = 0;
     globalState.iat = 0;
   } catch (error) {
-    console.log(error);
+    // console.log(error);
   }
 };
 

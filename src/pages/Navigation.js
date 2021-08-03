@@ -8,6 +8,8 @@ import ProfilScreen from './Profil';
 import UpdateProfilScreen from './UpdateProfil';
 import UpdatePasswordAccountScreen from './UpdatePasswordAccount';
 import Customer from './Customer';
+import HeaderTitle from '../components/HeaderTitle';
+import BackNavigation from '../components/BackNavigation';
 
 const Stack = createStackNavigator();
 
@@ -26,13 +28,32 @@ class Navigation extends Component {
             component={HomeScreen}
             options={{headerShown: false}}
           />
-          <Stack.Screen name="Profil" component={ProfilScreen} />
+          <Stack.Screen
+            name="Profil"
+            component={ProfilScreen}
+            options={({navigation, route}) => ({
+              headerLeft: (props) => (
+                <BackNavigation page="Home" navigation={navigation} />
+              ),
+            })}
+          />
           <Stack.Screen name="Update Profil" component={UpdateProfilScreen} />
           <Stack.Screen
             name="Update Password"
             component={UpdatePasswordAccountScreen}
           />
-          <Stack.Screen name="Get All Customer" component={Customer} />
+          <Stack.Screen
+            name="Pelanggan"
+            component={Customer}
+            options={({navigation, route}) => ({
+              headerTitle: (props) => (
+                <HeaderTitle name="Pelanggan" {...props} />
+              ),
+              headerLeft: (props) => (
+                <BackNavigation page="Home" navigation={navigation} />
+              ),
+            })}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     );

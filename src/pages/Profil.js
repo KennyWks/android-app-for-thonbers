@@ -1,11 +1,11 @@
 import React, {Component} from 'react';
 import {StyleSheet, View, Text, Image, Button, Alert} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Spinner from 'react-native-loading-spinner-overlay';
 import {connect} from 'react-redux';
 import {getData} from '../helpers/CRUD';
 import ActionType from '../redux/reducer/globalActionType';
 import Logo from '../assets/img/user.png';
+import Spinner from '../components/SpinnerScreen';
 
 class ProfilScreen extends Component {
   constructor(props) {
@@ -34,6 +34,14 @@ class ProfilScreen extends Component {
     }
   }
 
+  componentDidUpdate() {
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    }
+  }
+
   getDataUser = async () => {
     this.setState((prevState) => ({
       ...prevState,
@@ -46,7 +54,12 @@ class ProfilScreen extends Component {
         detailUser: responseDataUser.data,
       }));
     } catch (error) {
-      Alert.alert(error);
+      if (error.response.status !== 404) {
+        const {msg} = error.response.data;
+        Alert.alert(msg);
+      } else {
+        Alert.alert('Something error!');
+      }
     }
     this.setState((prevState) => ({
       ...prevState,
@@ -62,14 +75,10 @@ class ProfilScreen extends Component {
   };
 
   render() {
-    const {detailUser} = this.state;
+    const {detailUser, onLoad} = this.state;
     return (
       <View>
-        <Spinner
-          visible={this.state.onLoad}
-          textContent={'Memuat data profil...'}
-          textStyle={styles.spinnerTextStyle}
-        />
+        <Spinner visible={onLoad} textContent="Memproses..." />
         {Object.keys(detailUser).length > 0 && (
           <View style={styles.content}>
             <View>
@@ -88,16 +97,14 @@ class ProfilScreen extends Component {
 
                 <View style={styles.buttonView}>
                   <Button
-                    onPress={() =>
-                      this.props.navigation.navigate('Update Profil')
-                    }
+                    onPress={() => this.props.navigation.push('Update Profil')}
                     title="Ubah Profil"
                     color="#1CC88A"
                     accessibilityLabel="for update profil"
                   />
                   <Button
                     onPress={() =>
-                      this.props.navigation.navigate('Update Password')
+                      this.props.navigation.push('Update Password')
                     }
                     title="Ubah Password"
                     color="#1CC88A"
@@ -151,10 +158,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    paddingTop: 3,
-    paddingBottom: 3,
-    paddingLeft: 3,
-    paddingRight: 3,
+    padding: 3,
     marginBottom: 10,
     borderWidth: 2,
     borderColor: '#E3E6F0',

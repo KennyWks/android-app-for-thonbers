@@ -4,26 +4,27 @@ import {
   View,
   Text,
   TextInput,
-  ToastAndroid,
   Button,
   TouchableOpacity,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import {ScrollView} from 'react-native-gesture-handler';
 import RNPickerSelect from 'react-native-picker-select';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import RNDatePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import DocumentPicker from 'react-native-document-picker';
-import GetLocation from 'react-native-get-location';
+import Geolocation from 'react-native-geolocation-service';
 import {connect} from 'react-redux';
 import ActionType from '../redux/reducer/globalActionType';
-import {postData} from '../helpers/CRUD';
+import {postData, getData} from '../helpers/CRUD';
 import {Formik} from 'formik';
-import Spinner from 'react-native-loading-spinner-overlay';
+import Spinner from '../components/SpinnerScreen';
 import * as Yup from 'yup';
-import {openDatabase} from 'react-native-sqlite-storage';
-
-let db = openDatabase({name: 'thonbersDatabase.db'});
+import SQLite from 'react-native-sqlite-storage';
+import moment from 'moment';
+import {toastMessage} from '../components/Toast';
 
 const kunjunganFormSchema = Yup.object().shape({
   no_hp: Yup.string()
@@ -35,7 +36,9 @@ const kunjunganFormSchema = Yup.object().shape({
   tgl_lahir: Yup.string().required('Tanggal lahir wajib diisi!'),
   agama: Yup.string().required('Agama wajib dipilih!'),
   jk: Yup.string().required('Jenis Kelamin wajib dipilih!'),
-  email: Yup.string().email('Alamat email tidak valid!'),
+  email: Yup.string()
+    .required('Alamat email wajib diisi!')
+    .email('Alamat email tidak valid!'),
   alamat: Yup.string().required('Alamat wajib diisi!'),
 });
 
@@ -49,7 +52,7 @@ class Kunjungan extends Component {
         no_hp: '',
         nama: '',
         tempat_lahir: '',
-        tgl_lahir: '',
+        tgl_lahir: moment().format('YYYY-MM-DD'),
         agama: '',
         jk: '',
         email: '',
@@ -61,7 +64,7 @@ class Kunjungan extends Component {
       dataCheckNumber: {
         valid: '',
         carrier: '',
-        btnSubmit: false,
+        btnSubmit: props.isConnected ? true : false,
       },
       onSubmit: false,
       isConnected: props.isConnected,
@@ -72,55 +75,83 @@ class Kunjungan extends Component {
     this.props.handleConnections();
   }
 
-  getLocation = () => {
-    GetLocation.getCurrentPosition({
-      enableHighAccuracy: true,
-      timeout: 15000,
-    })
-      .then((location) => {
+  getCurrentPosition = async (options) => {
+    return new Promise((resolve, reject) => {
+      Geolocation.getCurrentPosition(
+        (position) => resolve(position.coords),
+        (error) => reject(error),
+        options,
+      );
+    });
+  };
+
+  getUserLocation = async () => {
+    const locationOptions =
+      Platform.OS === 'android'
+        ? {enableHighAccuracy: true, timeout: 100000, maximumAge: 1000}
+        : null;
+
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Lokasi perangkat',
+          message:
+            'Menambahkan pelanggan membutuhkan akses lokasi perangkat anda' +
+            ' Mohon pilih menu dibawah ini untuk melanjutkan.',
+          buttonNeutral: 'Tanya nanti',
+          buttonNegative: 'Batal',
+          buttonPositive: 'Setuju',
+        },
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        toastMessage('Akses lokasi ditolak');
+      }
+    } catch (err) {
+      Alert.alert('Error saat mendapatkan lokasi');
+    }
+
+    return await this.getCurrentPosition(locationOptions);
+  };
+
+  handleAddKunjungan = async () => {
+    this.setState((prevState) => ({
+      ...prevState,
+      onSubmit: true,
+    }));
+
+    let result;
+
+    const {foto} = this.state.form;
+    if (foto) {
+      this.props.handleConnections();
+      try {
+        let position = await this.getUserLocation();
         this.setState((prevState) => ({
           ...prevState,
           form: {
             ...prevState.form,
-            latitude: location.latitude,
-            longitude: location.longitude,
+            latitude: position.latitude,
+            longitude: position.longitude,
           },
         }));
-      })
-      .catch((error) => {
-        const {code} = error;
-        if (code === 'CANCELLED') {
-          Alert.alert('Location cancelled by user or by another request');
-        }
-        if (code === 'UNAVAILABLE') {
-          Alert.alert('Location service is disabled or unavailable');
-        }
-        if (code === 'TIMEOUT') {
-          Alert.alert('Location request timed out');
-        }
-        if (code === 'UNAUTHORIZED') {
-          Alert.alert('Authorization denied');
-        }
-      });
-  };
-
-  handleAddKunjungan = async () => {
-    await this.getLocation();
-    const {foto, longitude, latitude} = this.state.form;
-    if (longitude && latitude) {
-      if (foto) {
         if (this.state.isConnected) {
-          // await this.handleAddKunjunganOnlineMode();
-          await this.handleAddKunjunganOfflineMode();
+          result = await this.handleAddKunjunganOnlineMode();
         } else {
-          await this.handleAddKunjunganOfflineMode();
+          result = await this.handleAddKunjunganOfflineMode();
         }
-      } else {
-        Alert.alert('Anda belum memilih foto!');
+      } catch (error) {
+        Alert.alert('Lokasi anda tidak valid');
       }
     } else {
-      Alert.alert('Lokasi anda tidak valid! Coba lagi.');
+      Alert.alert('Anda belum memilih foto!');
     }
+    this.setState((prevState) => ({
+      ...prevState,
+      onSubmit: false,
+    }));
+
+    return result;
   };
 
   handleSetContentFormData = () => {
@@ -132,8 +163,8 @@ class Kunjungan extends Component {
         longitude: '',
         no_hp: '',
         nama: '',
-        tempat_lahir: '',
-        tgl_lahir: null,
+        tempat_lahir: null,
+        tgl_lahir: '',
         agama: '',
         jk: '',
         email: '',
@@ -144,16 +175,7 @@ class Kunjungan extends Component {
   };
 
   handleAddKunjunganOnlineMode = async () => {
-    this.setState((prevState) => ({
-      ...prevState,
-      onSubmit: true,
-    }));
-
     const {form} = this.state;
-    const dateOfBirth = new Date(form.tgl_lahir)
-      .toISOString()
-      .slice(0, 10)
-      .replace('T', ' ');
 
     let formData = new FormData();
     formData.append('latitude', form.latitude);
@@ -161,7 +183,7 @@ class Kunjungan extends Component {
     formData.append('no_hp', form.no_hp);
     formData.append('nama', form.nama);
     formData.append('tempat_lahir', form.tempat_lahir);
-    formData.append('tgl_lahir', dateOfBirth);
+    formData.append('tgl_lahir', form.tgl_lahir);
     formData.append('agama', form.agama);
     formData.append('jk', form.jk);
     formData.append('email', form.email);
@@ -169,81 +191,90 @@ class Kunjungan extends Component {
     formData.append('created_by', form.created_by);
     formData.append('foto', form.foto);
 
+    let status = false;
+
     try {
       const response = await postData(
         '/user_m/kunjungan/add/customer',
         formData,
       );
-      await this.handleSetContentFormData();
-      this.toastMessage(response.data.msg);
+      status = true;
+      toastMessage(response.data.msg);
     } catch (error) {
-      Alert.alert('Error! silahkan coba lagi.');
+      if (error.response.status !== 404) {
+        const {msg} = error.response.data;
+        if (msg.no_hp || msg.email) {
+          if (msg.no_hp && msg.email) {
+            toastMessage(msg.no_hp);
+            toastMessage(msg.email);
+          } else {
+            let message = msg.no_hp ? msg.no_hp : msg.email;
+            Alert.alert(message);
+          }
+        } else {
+          Alert.alert(msg);
+        }
+      } else {
+        Alert.alert('Error! silahkan coba lagi.');
+      }
     }
-    this.setState((prevState) => ({
-      ...prevState,
-      onSubmit: false,
-    }));
+
+    return status;
   };
 
-  handleAddKunjunganOfflineMode = () => {
-    const {
-      nama,
-      tempat_lahir,
-      tgl_lahir,
-      no_hp,
-      email,
-      agama,
-      jk,
-      alamat,
-      foto,
-      latitude,
-      longitude,
-      created_by,
-    } = this.state.form;
-    db.transaction(function (tx) {
-      tx.executeSql(
-        'INSERT INTO tbl_customer (nama, tempat_lahir, tgl_lahir, no_hp, email, agama, jk, alamat, foto, latitude, longitude created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-        [
-          nama,
-          tempat_lahir,
-          tgl_lahir,
-          no_hp,
-          email,
-          agama,
-          jk,
-          alamat,
-          foto.name,
-          latitude,
-          longitude,
-          created_by,
-        ],
-        (tx, results) => {
-          console.log('Results', results.rowsAffected);
-          if (results.rowsAffected > 0) {
-            Alert.alert(
-              'Success',
-              'Pelangan berhasil ditambahkan',
-              [
-                {
-                  text: 'Ok',
-                },
-              ],
-              {cancelable: false},
+  executeQuery = (sql, params = []) =>
+    new Promise((resolve, reject) => {
+      SQLite.openDatabase(
+        {name: 'thonbers_db.db', createFromLocation: 1},
+        (db) => {
+          db.transaction((trx) => {
+            trx.executeSql(
+              sql,
+              params,
+              (trx, results) => {
+                resolve(results);
+              },
+              (error) => {
+                reject(error);
+              },
             );
-          } else {
-            Alert.alert('Pelangan gagal ditambahkan');
-          }
+          });
         },
       );
     });
-  };
 
-  toastMessage = (message) => {
-    ToastAndroid.showWithGravity(
-      message,
-      ToastAndroid.SHORT,
-      ToastAndroid.BOTTOM,
-    );
+  handleAddKunjunganOfflineMode = async () => {
+    const query =
+      'INSERT INTO tbl_customer (nama, tempat_lahir, tgl_lahir, no_hp, email, agama, jk, alamat, fotoName, fotoUri, latitude, longitude, submited, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+
+    const data = [
+      this.state.form.nama,
+      this.state.form.tempat_lahir,
+      this.state.form.tgl_lahir,
+      this.state.form.no_hp,
+      this.state.form.email,
+      this.state.form.agama,
+      this.state.form.jk,
+      this.state.form.alamat,
+      this.state.form.foto.name,
+      this.state.form.foto.uri,
+      this.state.form.latitude,
+      this.state.form.longitude,
+      0,
+      this.state.form.created_by,
+    ];
+
+    let status = false;
+
+    try {
+      await this.executeQuery(query, data);
+      status = true;
+      toastMessage('Pelanggan berhasil ditambahkan');
+    } catch (error) {
+      toastMessage('Pelanggan gagal ditambahkan');
+    }
+
+    return status;
   };
 
   setSingleFile = (params) => {
@@ -261,15 +292,16 @@ class Kunjungan extends Component {
       const res = await DocumentPicker.pick({
         type: [DocumentPicker.types.images],
       });
-      this.setSingleFile(res);
+      if (res.type === 'image/jpeg' || res.type === 'image/jpg') {
+        this.setSingleFile(res);
+      } else {
+        Alert.alert('Format gambar tidak didukung');
+      }
     } catch (err) {
       this.setSingleFile(null);
-      // Handling any exception (If any)
       if (DocumentPicker.isCancel(err)) {
-        // If user canceled the document selection
         Alert.alert('Upload dibatalkan');
       } else {
-        // For Unknown Error
         Alert.alert('Error: ' + JSON.stringify(err));
         throw err;
       }
@@ -278,58 +310,68 @@ class Kunjungan extends Component {
 
   handleCheckNumber = async () => {
     const {no_hp} = this.state.form;
-    if (no_hp !== '') {
+    if (no_hp) {
       this.setState((prevState) => ({
         ...prevState,
         onSubmit: true,
       }));
 
-      this.setState((prevState) => ({
-        ...prevState,
-        dataCheckNumber: {
-          ...prevState.dataCheckNumber,
-          valid: '',
-          carrier: '',
-          btnSubmit: false,
-        },
-      }));
-
-      let formData = new FormData();
-      formData.append('no_hp', no_hp);
       try {
-        const response = await postData(
-          '/user_m/kunjungan/check/customer/nohp',
-          formData,
+        const response = await getData(
+          `/user_m/kunjungan/check/customer/nohp/${no_hp}`,
         );
-        const data = response.data;
-        this.setState((prevState) => ({
-          ...prevState,
-          dataCheckNumber: {
-            ...prevState.dataCheckNumber,
-            valid: data.valid,
-            carrier: data.carrier,
-            btnSubmit: data.valid === 'exists' ? true : false,
-          },
-        }));
+        if (response.data.valid === 'exists') {
+          this.setState((prevState) => ({
+            ...prevState,
+            dataCheckNumber: {
+              ...prevState.dataCheckNumber,
+              valid: response.data.valid,
+              carrier: response.data.carrier,
+              btnSubmit: true,
+            },
+          }));
+        } else if (response.data.valid === true) {
+          this.setState((prevState) => ({
+            ...prevState,
+            dataCheckNumber: {
+              ...prevState.dataCheckNumber,
+              valid: response.data.valid,
+              carrier: response.data.carrier,
+              btnSubmit: false,
+            },
+          }));
+        } else {
+          this.setState((prevState) => ({
+            ...prevState,
+            dataCheckNumber: {
+              ...prevState.dataCheckNumber,
+              valid: response.data.valid,
+              carrier: response.data.carrier,
+              btnSubmit: true,
+            },
+          }));
+        }
       } catch (error) {
-        Alert.alert('Error! silahkan coba lagi.');
+        Alert.alert('Error! saat mengecek data');
       }
       this.setState((prevState) => ({
         ...prevState,
         onSubmit: false,
       }));
     } else {
-      Alert.alert('Nomor Hp  wajib diisi!');
+      Alert.alert('Nomor HP wajib diisi!');
     }
   };
 
-  handledetNumInfo = () => {
+  handleSetNumInfo = () => {
     const {dataCheckNumber} = this.state;
     let numInfo = '';
     if (dataCheckNumber.valid === true) {
       numInfo = 'Nomor ini aktif.';
     } else if (dataCheckNumber.valid === 'exists') {
       numInfo = 'Nomor sudah ada di dalam sistem.';
+    } else if (dataCheckNumber.valid === false) {
+      numInfo = 'Nomor ini tidak aktif.';
     } else {
       numInfo = '';
     }
@@ -337,22 +379,17 @@ class Kunjungan extends Component {
   };
 
   render() {
-    const {form, show, dataCheckNumber} = this.state;
+    const {form, show, dataCheckNumber, onSubmit} = this.state;
     return (
       <View style={styles.container}>
         <ScrollView>
           <View style={styles.content}>
-            <Spinner
-              visible={this.state.onSubmit}
-              textContent={'Memproses...'}
-              textStyle={styles.spinnerTextStyle}
-            />
+            <Spinner visible={onSubmit} textContent="Memproses..." />
             <Text style={styles.titleForm}>Form Kunjungan</Text>
-
             <Formik
               initialValues={form}
               validationSchema={kunjunganFormSchema}
-              onSubmit={(values) => {
+              onSubmit={async (values, {setSubmitting, resetForm}) => {
                 this.setState((prevState) => ({
                   ...prevState,
                   form: {
@@ -367,7 +404,27 @@ class Kunjungan extends Component {
                     created_by: this.props.data.id_user,
                   },
                 }));
-                this.handleAddKunjungan();
+                try {
+                  const status = await this.handleAddKunjungan();
+                  if (status) {
+                    this.handleSetContentFormData();
+                    resetForm({
+                      values: {
+                        no_hp: '',
+                        nama: '',
+                        tempat_lahir: '',
+                        tgl_lahir: '',
+                        agama: '',
+                        jk: '',
+                        email: '',
+                        alamat: '',
+                      },
+                    });
+                    setSubmitting(false);
+                  }
+                } catch (error) {
+                  Alert.alert('Error! Saat memuat ulang form');
+                }
               }}>
               {(props) => (
                 <View style={styles.cardForm}>
@@ -377,7 +434,7 @@ class Kunjungan extends Component {
                         style={styles.textInput}
                         placeholder="Nomor HP..."
                         keyboardType="phone-pad"
-                        value={props.no_hp}
+                        value={props.values.no_hp}
                         onChangeText={(value) => {
                           props.setFieldValue('no_hp', value);
                           this.setState((prevState) => ({
@@ -405,14 +462,14 @@ class Kunjungan extends Component {
                       onPress={this.handleCheckNumber}
                     />
                     <Text style={styles.smallText}>
-                      {this.handledetNumInfo()}
+                      {this.handleSetNumInfo()}
                     </Text>
                   </View>
 
                   <TextInput
                     style={styles.textInput}
                     placeholder="Nama..."
-                    value={props.nama}
+                    value={props.values.nama}
                     onChangeText={props.handleChange('nama')}
                     onBlur={props.handleBlur('nama')}
                   />
@@ -423,7 +480,7 @@ class Kunjungan extends Component {
                   <TextInput
                     style={styles.textInput}
                     placeholder="Tempat Lahir..."
-                    value={props.tempat_lahir}
+                    value={props.values.tempat_lahir}
                     onChangeText={props.handleChange('tempat_lahir')}
                     onBlur={props.handleBlur('tempat_lahir')}
                   />
@@ -434,53 +491,46 @@ class Kunjungan extends Component {
                   </Text>
 
                   <View style={styles.dateContainer}>
-                    <TextInput
+                    <Text
                       style={styles.textInputDate}
-                      placeholder="Tanggal Lahir..."
-                      value={
-                        props.values.tgl_lahir !== undefined
-                          ? `${props.values.tgl_lahir}`
-                          : ''
-                      }
-                      editable={false}
-                    />
-                    <MaterialCommunityIcons
-                      name="calendar-outline"
-                      color="red"
-                      size={30}
                       onPress={() => {
                         this.setState((prevState) => ({
                           ...prevState,
                           show: true,
                         }));
-                      }}
+                      }}>
+                      {props.values.tgl_lahir === undefined ||
+                      props.values.tgl_lahir === ''
+                        ? 'Tanggal Lahir'
+                        : `${props.values.tgl_lahir}`}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name="calendar-outline"
+                      color="red"
+                      size={30}
                     />
                   </View>
-                  {show && (
-                    <RNDatePicker
-                      testID="dateTimePicker"
-                      mode="date"
-                      value={new Date()}
-                      minimumDate={new Date(1950, 0, 1)}
-                      maximumDate={new Date()}
-                      is24Hour={true}
-                      display="default"
-                      onChange={(event, selectedDate) => {
-                        const currentDate = selectedDate || new Date();
-                        props.setFieldValue('tgl_lahir', currentDate);
-                        this.setState((prevState) => ({
-                          ...prevState,
-                          show: false,
-                        }));
-                      }}
-                      onBlur={() => {
-                        this.setState((prevState) => ({
-                          ...prevState,
-                          show: false,
-                        }));
-                      }}
-                    />
-                  )}
+                  <DateTimePickerModal
+                    isVisible={show}
+                    mode="date"
+                    date={moment(props.values.tgl_lahir).toDate()}
+                    onConfirm={(date) => {
+                      props.setFieldValue(
+                        'tgl_lahir',
+                        moment(date).format('YYYY-MM-DD'),
+                      );
+                      this.setState((prevState) => ({
+                        ...prevState,
+                        show: false,
+                      }));
+                    }}
+                    onCancel={() => {
+                      this.setState((prevState) => ({
+                        ...prevState,
+                        show: false,
+                      }));
+                    }}
+                  />
                   <Text style={styles.smallText}>
                     {props.errors.tgl_lahir ? `${props.errors.tgl_lahir}` : ''}
                   </Text>
@@ -489,10 +539,10 @@ class Kunjungan extends Component {
                     onValueChange={(value) => {
                       props.setFieldValue('agama', value);
                     }}
-                    value={props.agama}
+                    value={props.values.agama}
                     placeholder={{
                       label: 'Pilih Agama',
-                      value: null,
+                      value: '',
                       color: 'red',
                     }}
                     items={[
@@ -513,10 +563,10 @@ class Kunjungan extends Component {
                     onValueChange={(value) => {
                       props.setFieldValue('jk', value);
                     }}
-                    value={props.jk}
+                    value={props.values.jk}
                     placeholder={{
                       label: 'Pilih Jenis Kelamin',
-                      value: null,
+                      value: '',
                       color: 'red',
                     }}
                     items={[
@@ -532,7 +582,7 @@ class Kunjungan extends Component {
                     style={styles.textInput}
                     placeholder="Email..."
                     keyboardType="email-address"
-                    value={props.email}
+                    value={props.values.email}
                     onChangeText={props.handleChange('email')}
                     onBlur={props.handleBlur('email')}
                   />
@@ -540,24 +590,26 @@ class Kunjungan extends Component {
                     {props.errors.email ? `${props.errors.email}` : ''}
                   </Text>
 
-                  <TextInput
-                    style={styles.textInput}
-                    multiline={true}
-                    numberOfLines={10}
-                    placeholder="Alamat..."
-                    value={props.alamat}
-                    onChangeText={props.handleChange('alamat')}
-                    onBlur={props.handleBlur('alamat')}
-                  />
-                  <Text style={styles.smallText}>
-                    {props.errors.alamat ? `${props.errors.alamat}` : ''}
-                  </Text>
+                  <View>
+                    <Text style={styles.styleForAddresFont}>Alamat</Text>
+                    <TextInput
+                      style={styles.textArea}
+                      multiline={true}
+                      numberOfLines={10}
+                      value={props.values.alamat}
+                      onChangeText={props.handleChange('alamat')}
+                      onBlur={props.handleBlur('alamat')}
+                    />
+                    <Text style={styles.smallText}>
+                      {props.errors.alamat ? `${props.errors.alamat}` : ''}
+                    </Text>
+                  </View>
 
                   <TouchableOpacity
                     style={styles.buttonSelectFile}
                     activeOpacity={0.5}
                     onPress={this.handleSelectFile}>
-                    <Text style={styles.buttonTextStyle}>Select File</Text>
+                    <Text style={styles.buttonTextStyle}>Pilih Foto</Text>
                   </TouchableOpacity>
 
                   <Button
@@ -625,14 +677,23 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
   },
-  textInputDate: {
-    height: 45,
-    width: '75%',
+  styleForAddresFont: {color: '#7f7f7f'},
+  textArea: {
+    height: 100,
+    width: '100%',
     backgroundColor: '#fff',
     borderColor: 'lightgrey',
     borderWidth: 1,
     borderRadius: 5,
     padding: 10,
+  },
+  textInputDate: {
+    width: '80%',
+    padding: 10,
+    color: 'lightgrey',
+    borderColor: 'lightgrey',
+    borderWidth: 1,
+    borderRadius: 5,
   },
   smallText: {
     fontSize: 11,
@@ -648,9 +709,6 @@ const styles = StyleSheet.create({
     width: '80%',
     borderRadius: 5,
   },
-  spinnerTextStyle: {
-    color: '#FFF',
-  },
   cardForm: {
     padding: 10,
     borderRadius: 5,
@@ -662,8 +720,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   dateContainer: {
+    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   buttonSelectFile: {

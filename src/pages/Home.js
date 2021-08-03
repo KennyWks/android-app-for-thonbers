@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import {StyleSheet, View, Text, Alert} from 'react-native';
+import {StyleSheet, View, Text, Alert, BackHandler} from 'react-native';
 import {connect} from 'react-redux';
 import ActionType from '../redux/reducer/globalActionType';
 import Menu, {MenuItem, MenuDivider} from 'react-native-material-menu';
@@ -7,9 +7,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Penjualan from './Penjualan';
 import Kunjungan from './Kunjungan';
-import {openDatabase} from 'react-native-sqlite-storage';
-
-let db = openDatabase({name: 'thonbersDatabase.db'});
+import SQLite from 'react-native-sqlite-storage';
+// SQLite.DEBUG(false);
+// SQLite.enablePromise(false);
 
 class HomeScreen extends Component {
   constructor(props) {
@@ -27,40 +27,73 @@ class HomeScreen extends Component {
   }
 
   componentDidMount() {
+    this.handleDatabase();
+    BackHandler.addEventListener(
+      'hardwareBackPress',
+      this.handleBackButtonClick,
+    );
+  }
+
+  componentWillUnmount() {
+    BackHandler.removeEventListener(
+      'hardwareBackPress',
+      this.handleBackButtonClick,
+    );
+  }
+
+  componentDidUpdate() {
     const time = Math.floor(new Date().getTime() / 1000);
     const session = this.state.exp - this.state.iat;
     if (time - this.state.iat > session) {
       this.handleLogout();
     }
-    this.handleDatabase();
   }
 
-  handleDatabase = () => {
-    db.transaction(function (txn) {
-      txn.executeSql(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='tbl_customer'",
-        [],
-        function (tx, res) {
-          // console.log('item:', res.rows.length);
-          if (res.rows.length == 0) {
-            txn.executeSql('DROP TABLE IF EXISTS tbl_customer', []);
-            txn.executeSql(
-              'CREATE TABLE IF NOT EXISTS tbl_customer(id INTEGER PRIMARY KEY AUTOINCREMENT, nama VARCHAR(50), tempat_lahir VARCHAR(50), tgl_lahir VARCHAR(10), no_hp VARCHAR(12), email VARCHAR(20), agama VARCHAR(20), jk VARCHAR(9), alamat VARCHAR(100), foto VARCHAR(255), latitude VARCHAR(255), longitude VARCHAR(255), created_by INT(1))',
-              [],
+  handleBackButtonClick = () => {
+    if (this.state.isLogin) {
+      BackHandler.exitApp();
+      return true;
+    }
+  };
+
+  handleLogout = () => {
+    this.hideMenu();
+    this.props.handleLogout();
+    setTimeout(() => {
+      this.props.navigation.navigate('Login');
+    }, Alert.alert('Sesi anda telah berakhir, silahkan login kembali'));
+  };
+
+  executeQuery = (sql, params = []) =>
+    new Promise((resolve, reject) => {
+      SQLite.openDatabase(
+        {name: 'thonbers_db.db', createFromLocation: 1},
+        (db) => {
+          db.transaction((trx) => {
+            trx.executeSql(
+              sql,
+              params,
+              (trx, results) => {
+                resolve(results);
+              },
+              (error) => {
+                reject(error);
+              },
             );
-          }
+          });
         },
       );
     });
-  };
 
-  componentWillUnmount() {
-    const time = Math.floor(new Date().getTime() / 1000);
-    const session = this.state.exp - this.state.iat;
-    if (time - this.state.iat > session) {
-      this.handleLogout();
+  handleDatabase = async () => {
+    try {
+      let query =
+        'CREATE TABLE IF NOT EXISTS tbl_customer(id INTEGER PRIMARY KEY AUTOINCREMENT, nama VARCHAR(50), tempat_lahir VARCHAR(50), tgl_lahir VARCHAR(10), no_hp VARCHAR(12), email VARCHAR(20), agama VARCHAR(20), jk VARCHAR(9), alamat VARCHAR(100), fotoName VARCHAR(255), fotoUri VARCHAR(255), latitude VARCHAR(255), longitude VARCHAR(255), submited INT(1), created_by INT(1))';
+      await this.executeQuery(query);
+    } catch (error) {
+      Alert.alert('Database error!');
     }
-  }
+  };
 
   _menu = null;
 
@@ -78,20 +111,12 @@ class HomeScreen extends Component {
 
   handleRedirectToProfil = () => {
     this.hideMenu();
-    this.props.navigation.navigate('Profil');
+    this.props.navigation.push('Profil');
   };
 
   handleRedirectToDataKunjunganOffline = () => {
     this.hideMenu();
-    this.props.navigation.navigate('Get All Customer');
-  };
-
-  handleLogout = async () => {
-    this.hideMenu();
-    this.props.handleLogout();
-    setTimeout(() => {
-      this.props.navigation.navigate('Login');
-    }, Alert.alert('Sesi anda telah berakhir, silahkan login kembali'));
+    this.props.navigation.push('Pelanggan');
   };
 
   render() {
@@ -108,10 +133,10 @@ class HomeScreen extends Component {
             <MenuItem onPress={this.handleRedirectToDataKunjunganOffline}>
               Pelanggan - Offline
             </MenuItem>
-            <MenuDivider />
             <MenuItem onPress={this.handleRedirectToProfil}>
               Profil saya
             </MenuItem>
+            <MenuDivider />
             <MenuItem onPress={this.handleLogout}>Keluar</MenuItem>
           </Menu>
         </View>

@@ -5,18 +5,18 @@ import {
   TextInput,
   View,
   Button,
-  ToastAndroid,
   Text,
   Alert,
 } from 'react-native';
 import ActionType from '../redux/reducer/globalActionType';
 import {connect} from 'react-redux';
-import Spinner from 'react-native-loading-spinner-overlay';
+import Spinner from '../components/SpinnerScreen';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {postData} from '../helpers/CRUD';
 import Logo from '../assets/img/user.png';
 import {style} from 'styled-system';
+import {toastMessage} from '../components/Toast';
 
 class LoginScreen extends Component {
   constructor(props) {
@@ -37,7 +37,7 @@ class LoginScreen extends Component {
 
   componentDidMount() {
     if (this.state.isLogin) {
-      this.props.navigation.navigate('Home');
+      this.props.navigation.push('Home');
     }
   }
 
@@ -45,6 +45,11 @@ class LoginScreen extends Component {
     this.setState((prevState) => ({
       ...prevState,
       onSubmit: true,
+      error: {
+        ...prevState.error,
+        username: '',
+        password: '',
+      },
     }));
 
     let formData = new FormData();
@@ -52,36 +57,36 @@ class LoginScreen extends Component {
     formData.append('password', this.state.form.password);
     try {
       const response = await postData('/auth_m/login', formData);
-      if (response.data.data) {
-        this.setState((prevState) => ({
-          ...prevState,
-          form: {
-            username: '',
-            password: '',
-          },
-        }));
+      this.setState((prevState) => ({
+        ...prevState,
+        form: {
+          username: '',
+          password: '',
+        },
+      }));
 
-        await AsyncStorage.setItem('accessToken', response.data.data);
+      await AsyncStorage.setItem('accessToken', response.data.data);
 
-        this.props.handleLogin();
-        this.toastMessage(response.data.msg);
-        this.redirectPage();
-      } else {
-        this.toastMessage(response.data.msg);
-      }
+      this.props.handleLogin();
+      toastMessage(response.data.msg);
+      this.redirectPage();
     } catch (error) {
-      if (error.response.status === 500) {
+      if (error.response.status !== 404) {
         const {msg} = error.response.data;
-        this.setState((prevState) => ({
-          ...prevState,
-          error: {
-            ...prevState.error,
-            username: `${msg.username}`,
-            password: `${msg.password}`,
-          },
-        }));
+        if (msg.username || msg.password) {
+          this.setState((prevState) => ({
+            ...prevState,
+            error: {
+              ...prevState.error,
+              username: `${msg.username}`,
+              password: `${msg.password}`,
+            },
+          }));
+        } else {
+          Alert.alert(msg);
+        }
       } else {
-        Alert.alert(error);
+        Alert.alert('Something error!');
       }
     }
     this.setState((prevState) => ({
@@ -92,8 +97,6 @@ class LoginScreen extends Component {
 
   handleMasuk = () => {
     NetInfo.fetch().then((state) => {
-      // console.log('Connection type', state.type);
-      // console.log('Is connected?', state.isConnected);
       if (state.isConnected) {
         this.handleLogin();
       } else {
@@ -102,28 +105,16 @@ class LoginScreen extends Component {
     });
   };
 
-  toastMessage = (message) => {
-    ToastAndroid.showWithGravity(
-      message,
-      ToastAndroid.SHORT,
-      ToastAndroid.BOTTOM,
-    );
-  };
-
   redirectPage = () => {
     setTimeout(() => {
-      this.props.navigation.navigate('Home');
-    }, 200);
+      this.props.navigation.push('Home');
+    }, 150);
   };
 
   render() {
     return (
       <View style={styles.container}>
-        <Spinner
-          visible={this.state.onSubmit}
-          textContent={'Memuat...'}
-          textStyle={styles.spinnerTextStyle}
-        />
+        <Spinner visible={this.state.onSubmit} textContent="Memproses..." />
         <View>
           <Image source={Logo} style={styles.logo} />
         </View>
@@ -174,7 +165,6 @@ class LoginScreen extends Component {
               color="#466BD9"
               title="Masuk"
               style={styles.button}
-              // onPress={() => this.props.navigation.navigate('Home')}
               onPress={this.handleMasuk}
             />
           </View>
