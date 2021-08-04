@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // export const ApiURL = 'http://10.0.2.2:81/BetaBajual.com/public';
-export const ApiURL = 'http://thonbers.rf.gd';
+export const ApiURL = 'https://thonbers.000webhostapp.com';
 
 const header = {
   'Content-Type': 'multipart/form-data',
