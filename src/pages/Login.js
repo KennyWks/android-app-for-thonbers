@@ -57,6 +57,7 @@ class LoginScreen extends Component {
     formData.append('password', this.state.form.password);
     try {
       const response = await postData('/auth_m/login', formData);
+      console.log(response);
       this.setState((prevState) => ({
         ...prevState,
         form: {
