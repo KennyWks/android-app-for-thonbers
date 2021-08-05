@@ -5,7 +5,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const ApiURL = 'https://thonbers.000webhostapp.com';
 
 const header = {
+  Accept: 'application/json',
   'Content-Type': 'multipart/form-data',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
 };
 let token = {};
 
