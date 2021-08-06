@@ -64,7 +64,6 @@ class LoginScreen extends Component {
           password: '',
         },
       }));
-
       await AsyncStorage.setItem('accessToken', response.data.data);
 
       this.props.handleLogin();

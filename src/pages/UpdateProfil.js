@@ -90,10 +90,17 @@ class UpdateProfil extends Component {
       ...prevState,
       onLoad: true,
     }));
+
+    const {formUpdateProfil} = this.state;
+
+    let formData = new FormData();
+    formData.append('name', formUpdateProfil.name);
+    formData.append('hp', formUpdateProfil.hp);
+
     try {
       const responseDataUser = await postData(
         '/user_m/saler/update/profil',
-        this.state.formUpdateProfil,
+        formData,
       );
       this.getDataUser();
       toastMessage(responseDataUser.data.msg);

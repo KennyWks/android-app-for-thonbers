@@ -51,10 +51,18 @@ class UpdatePasswordAccount extends Component {
         repeatNewPassword: '',
       },
     }));
+
+    const {formUpdatePass} = this.state;
+
+    let formData = new FormData();
+    formData.append('oldPassword', formUpdatePass.oldPassword);
+    formData.append('password', formUpdatePass.password);
+    formData.append('repeatNewPassword', formUpdatePass.repeatNewPassword);
+
     try {
       const responseDataUser = await postData(
         '/user_m/saler/update/password',
-        this.state.formUpdatePass,
+        formData,
       );
       this.setState((prevState) => ({
         ...prevState,
