@@ -26,7 +26,7 @@ const rootReducer = (state = globalState, action) => {
   }
 
   if (action.type === ActionType.IS_CONNECTED) {
-    setConncetionStatus();
+    setConnectionStatus();
   }
 
   return state;
@@ -61,7 +61,7 @@ const setIsLogout = async () => {
   }
 };
 
-const setConncetionStatus = NetInfo.addEventListener((state) => {
+const setConnectionStatus = NetInfo.addEventListener((state) => {
   globalState.isConnected = state.isConnected;
 });
 

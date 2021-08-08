@@ -67,9 +67,9 @@ class UpdateProfil extends Component {
     } catch (error) {
       if (error.response.status !== 404) {
         const {msg} = error.response.data;
-        Alert.alert(msg);
+        Alert.alert(msg || 'Gagal saat mendapatkan data');
       } else {
-        Alert.alert('Something error!');
+        Alert.alert('Terjadi kesalahan!');
       }
     }
     this.setState((prevState) => ({
@@ -120,7 +120,7 @@ class UpdateProfil extends Component {
           Alert.alert('Profil gagal diubah');
         }
       } else {
-        Alert.alert('Something error!');
+        Alert.alert('Terjadi kesalahan!');
       }
     }
     this.setState((prevState) => ({

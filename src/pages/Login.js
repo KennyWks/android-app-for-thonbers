@@ -57,18 +57,20 @@ class LoginScreen extends Component {
     formData.append('password', this.state.form.password);
     try {
       const response = await postData('/auth_m/login', formData);
-      this.setState((prevState) => ({
-        ...prevState,
-        form: {
-          username: '',
-          password: '',
-        },
-      }));
-      await AsyncStorage.setItem('accessToken', response.data.data);
+      if (response) {
+        this.setState((prevState) => ({
+          ...prevState,
+          form: {
+            username: '',
+            password: '',
+          },
+        }));
+        await AsyncStorage.setItem('accessToken', response.data.data);
 
-      this.props.handleLogin();
-      toastMessage(response.data.msg);
-      this.redirectPage();
+        this.props.handleLogin();
+        toastMessage(response.data.msg);
+        this.redirectPage();
+      }
     } catch (error) {
       if (error.response.status !== 404) {
         const {msg} = error.response.data;
@@ -85,7 +87,7 @@ class LoginScreen extends Component {
           Alert.alert(msg);
         }
       } else {
-        Alert.alert('Something error!');
+        Alert.alert('Terjadi kesalahan!');
       }
     }
     this.setState((prevState) => ({

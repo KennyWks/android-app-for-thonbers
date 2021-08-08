@@ -37,9 +37,9 @@ class Navigation extends Component {
               ),
             })}
           />
-          <Stack.Screen name="Update Profil" component={UpdateProfilScreen} />
+          <Stack.Screen name="Ubah Profil" component={UpdateProfilScreen} />
           <Stack.Screen
-            name="Update Password"
+            name="Ubah Password"
             component={UpdatePasswordAccountScreen}
           />
           <Stack.Screen

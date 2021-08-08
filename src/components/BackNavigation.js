@@ -1,18 +1,19 @@
 import React from 'react';
-import {View} from 'react-native';
+import {TouchableOpacity} from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const BackNavigation = (props) => {
   return (
-    <View style={{margin: 10}}>
+    <TouchableOpacity style={{margin: 10}}>
       <MaterialCommunityIcons
         name="arrow-left-thick"
+        activeOpacity={0.5}
         size={20}
         onPress={() => {
           props.navigation.push(props.page);
         }}
       />
-    </View>
+    </TouchableOpacity>
   );
 };
 

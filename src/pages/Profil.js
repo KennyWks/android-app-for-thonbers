@@ -58,7 +58,7 @@ class ProfilScreen extends Component {
         const {msg} = error.response.data;
         Alert.alert(msg);
       } else {
-        Alert.alert('Something error!');
+        Alert.alert('Terjadi kesalahan!');
       }
     }
     this.setState((prevState) => ({
@@ -97,15 +97,13 @@ class ProfilScreen extends Component {
 
                 <View style={styles.buttonView}>
                   <Button
-                    onPress={() => this.props.navigation.push('Update Profil')}
+                    onPress={() => this.props.navigation.push('Ubah Profil')}
                     title="Ubah Profil"
                     color="#1CC88A"
                     accessibilityLabel="for update profil"
                   />
                   <Button
-                    onPress={() =>
-                      this.props.navigation.push('Update Password')
-                    }
+                    onPress={() => this.props.navigation.push('Ubah Password')}
                     title="Ubah Password"
                     color="#1CC88A"
                     accessibilityLabel="for update password"

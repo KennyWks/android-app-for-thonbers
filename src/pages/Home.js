@@ -8,6 +8,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Penjualan from './Penjualan';
 import Kunjungan from './Kunjungan';
 import SQLite from 'react-native-sqlite-storage';
+import NetInfo from '@react-native-community/netinfo';
 // SQLite.DEBUG(false);
 // SQLite.enablePromise(false);
 
@@ -27,6 +28,11 @@ class HomeScreen extends Component {
   }
 
   componentDidMount() {
+    const time = Math.floor(new Date().getTime() / 1000);
+    const session = this.state.exp - this.state.iat;
+    if (time - this.state.iat > session) {
+      this.handleLogout();
+    }
     this.handleDatabase();
     BackHandler.addEventListener(
       'hardwareBackPress',
@@ -39,14 +45,6 @@ class HomeScreen extends Component {
       'hardwareBackPress',
       this.handleBackButtonClick,
     );
-  }
-
-  componentDidUpdate() {
-    const time = Math.floor(new Date().getTime() / 1000);
-    const session = this.state.exp - this.state.iat;
-    if (time - this.state.iat > session) {
-      this.handleLogout();
-    }
   }
 
   handleBackButtonClick = () => {
@@ -110,8 +108,14 @@ class HomeScreen extends Component {
   };
 
   handleRedirectToProfil = () => {
+    NetInfo.fetch().then((state) => {
+      if (state.isConnected) {
+        this.props.navigation.push('Profil');
+      } else {
+        Alert.alert('Anda sedang offline!');
+      }
+    });
     this.hideMenu();
-    this.props.navigation.push('Profil');
   };
 
   handleRedirectToDataKunjunganOffline = () => {
@@ -158,6 +162,7 @@ const BottomTab = () => {
         inactiveTintColor: 'lightgray',
         style: {
           backgroundColor: '#466BD9',
+          paddingBottom: 5,
         },
       }}>
       <Tab.Screen

@@ -97,7 +97,7 @@ class UpdatePasswordAccount extends Component {
           Alert.alert(msg);
         }
       } else {
-        Alert.alert('Something error!');
+        Alert.alert('Terjadi kesalahan!');
       }
     }
     this.setState((prevState) => ({

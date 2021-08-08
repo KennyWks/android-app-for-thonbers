@@ -25,6 +25,7 @@ import * as Yup from 'yup';
 import SQLite from 'react-native-sqlite-storage';
 import moment from 'moment';
 import {toastMessage} from '../components/Toast';
+import NetInfo from '@react-native-community/netinfo';
 
 const kunjunganFormSchema = Yup.object().shape({
   no_hp: Yup.string()
@@ -61,12 +62,12 @@ class Kunjungan extends Component {
         created_by: '',
       },
       show: false,
+      onSubmit: false,
       dataCheckNumber: {
         valid: '',
         carrier: '',
-        btnSubmit: props.isConnected ? true : false,
+        btnSubmit: props.isConnected,
       },
-      onSubmit: false,
       isConnected: props.isConnected,
     };
   }
@@ -74,6 +75,30 @@ class Kunjungan extends Component {
   componentDidMount() {
     this.props.handleConnections();
   }
+
+  setConnection = () => {
+    NetInfo.fetch().then((state) => {
+      if (state.isConnected) {
+        this.setState((prevState) => ({
+          ...prevState,
+          dataCheckNumber: {
+            ...prevState.dataCheckNumber,
+            btnSubmit: true,
+          },
+          isConnected: true,
+        }));
+      } else {
+        this.setState((prevState) => ({
+          ...prevState,
+          dataCheckNumber: {
+            ...prevState.dataCheckNumber,
+            btnSubmit: false,
+          },
+          isConnected: false,
+        }));
+      }
+    });
+  };
 
   getCurrentPosition = async (options) => {
     return new Promise((resolve, reject) => {
@@ -108,7 +133,7 @@ class Kunjungan extends Component {
         toastMessage('Akses lokasi ditolak');
       }
     } catch (err) {
-      Alert.alert('Error saat mendapatkan lokasi');
+      Alert.alert('Terjadi kesalahan saat mendapatkan lokasi');
     }
 
     return await this.getCurrentPosition(locationOptions);
@@ -123,8 +148,9 @@ class Kunjungan extends Component {
     let result;
 
     const {foto} = this.state.form;
+
     if (foto) {
-      this.props.handleConnections();
+      this.setConnection();
       try {
         let position = await this.getUserLocation();
         this.setState((prevState) => ({
@@ -141,7 +167,7 @@ class Kunjungan extends Component {
           result = await this.handleAddKunjunganOfflineMode();
         }
       } catch (error) {
-        Alert.alert('Lokasi anda tidak valid');
+        Alert.alert('Lokasi anda tidak valid!');
       }
     } else {
       Alert.alert('Anda belum memilih foto!');
@@ -215,7 +241,7 @@ class Kunjungan extends Component {
           Alert.alert(msg);
         }
       } else {
-        Alert.alert('Error! silahkan coba lagi.');
+        Alert.alert('Terjadi kesalahan!');
       }
     }
 
@@ -277,7 +303,7 @@ class Kunjungan extends Component {
     return status;
   };
 
-  setSingleFile = (params) => {
+  setFile = (params) => {
     this.setState((prevState) => ({
       ...prevState,
       form: {
@@ -293,12 +319,12 @@ class Kunjungan extends Component {
         type: [DocumentPicker.types.images],
       });
       if (res.type === 'image/jpeg' || res.type === 'image/jpg') {
-        this.setSingleFile(res);
+        this.setFile(res);
       } else {
         Alert.alert('Format gambar tidak didukung');
       }
     } catch (err) {
-      this.setSingleFile(null);
+      this.setFile(null);
       if (DocumentPicker.isCancel(err)) {
         Alert.alert('Upload dibatalkan');
       } else {
@@ -310,10 +336,15 @@ class Kunjungan extends Component {
 
   handleCheckNumber = async () => {
     const {no_hp} = this.state.form;
+
     if (no_hp) {
       this.setState((prevState) => ({
         ...prevState,
         onSubmit: true,
+        dataCheckNumber: {
+          ...prevState.dataCheckNumber,
+          valid: '',
+        },
       }));
 
       try {
@@ -352,7 +383,11 @@ class Kunjungan extends Component {
           }));
         }
       } catch (error) {
-        Alert.alert('Error! saat mengecek data');
+        this.setConnection();
+        Alert.alert(
+          'Koneksi internet terputus!',
+          'Jika anda tidak terkoneksi internet, silahkan lanjut untuk mengisi data. Data dimasukan akan disimpan secara offline',
+        );
       }
       this.setState((prevState) => ({
         ...prevState,
@@ -423,7 +458,7 @@ class Kunjungan extends Component {
                     setSubmitting(false);
                   }
                 } catch (error) {
-                  Alert.alert('Error! Saat memuat ulang form');
+                  Alert.alert('Terjadi kesalahan saat memuat ulang form');
                 }
               }}>
               {(props) => (
