@@ -49,7 +49,11 @@ const Customer = ({navigation}) => {
           ref={menu}
           button={
             <Text onPress={showMenu}>
-              <MaterialCommunityIcons name="dots-vertical" size={25} />
+              <MaterialCommunityIcons
+                name="dots-vertical"
+                size={25}
+                color="white"
+              />
             </Text>
           }>
           <MenuItem onPress={handleSyncData}>Sinkron Data</MenuItem>
@@ -198,7 +202,7 @@ const Customer = ({navigation}) => {
           name: data[i].fotoName,
         });
         try {
-          await postData('/user_m/kunjungan/sinkron/customer', formData);
+          await postData('/user_m/kunjungan/customer/sinkron', formData);
           updateSubmitedCustomer(data[i].id, 1);
         } catch (error) {
           if (error.response.status !== 404) {
@@ -232,6 +236,7 @@ const Customer = ({navigation}) => {
                 );
               }
             }}
+            useNativeAndroidPickerStyle={false}
             placeholder={{
               label: 'Pilih Status Sinkron',
               value: '',

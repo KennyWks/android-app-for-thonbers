@@ -26,12 +26,15 @@ import SQLite from 'react-native-sqlite-storage';
 import moment from 'moment';
 import {toastMessage} from '../components/Toast';
 import NetInfo from '@react-native-community/netinfo';
+import Menu, {MenuItem, MenuDivider} from 'react-native-material-menu';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import RNMockLocationDetector from 'react-native-mock-location-detector';
 
 const kunjunganFormSchema = Yup.object().shape({
   no_hp: Yup.string()
-    .required('Nomor Hp wajib diisi!')
-    .min(11, 'Nomor Hp minimal 11 karakter!')
-    .max(12, 'Nomor Hp maksimal 12 karakter!'),
+    .required('Nomor HP wajib diisi!')
+    .min(11, 'Nomor HP minimal 11 karakter!')
+    .max(12, 'Nomor HP maksimal 12 karakter!'),
   nama: Yup.string().required('Nama wajib diisi!'),
   tempat_lahir: Yup.string().required('Tempat lahir wajib diisi!'),
   tgl_lahir: Yup.string().required('Tanggal lahir wajib diisi!'),
@@ -149,25 +152,33 @@ class Kunjungan extends Component {
 
     const {foto} = this.state.form;
 
+    const isLocationMocked =
+      await RNMockLocationDetector.checkMockLocationProvider();
+
     if (foto) {
-      this.setConnection();
-      try {
-        let position = await this.getUserLocation();
-        this.setState((prevState) => ({
-          ...prevState,
-          form: {
-            ...prevState.form,
-            latitude: position.latitude,
-            longitude: position.longitude,
-          },
-        }));
-        if (this.state.isConnected) {
-          result = await this.handleAddKunjunganOnlineMode();
-        } else {
-          result = await this.handleAddKunjunganOfflineMode();
-        }
-      } catch (error) {
+      if (isLocationMocked) {
         Alert.alert('Lokasi anda tidak valid!');
+      } else {
+        this.setConnection();
+        try {
+          let position = await this.getUserLocation();
+          this.setState((prevState) => ({
+            ...prevState,
+            form: {
+              ...prevState.form,
+              latitude: position.latitude,
+              longitude: position.longitude,
+            },
+          }));
+          if (this.state.isConnected) {
+            // result = await this.handleAddKunjunganOnlineMode();
+            result = await this.handleAddKunjunganOfflineMode();
+          } else {
+            result = await this.handleAddKunjunganOfflineMode();
+          }
+        } catch (error) {
+          Alert.alert('Lokasi anda tidak valid!');
+        }
       }
     } else {
       Alert.alert('Anda belum memilih foto!');
@@ -221,7 +232,7 @@ class Kunjungan extends Component {
 
     try {
       const response = await postData(
-        '/user_m/kunjungan/add/customer',
+        '/user_m/kunjungan/customer/add',
         formData,
       );
       status = true;
@@ -293,9 +304,17 @@ class Kunjungan extends Component {
     let status = false;
 
     try {
-      await this.executeQuery(query, data);
-      status = true;
-      toastMessage('Pelanggan berhasil ditambahkan');
+      const resultHP = await this.executeQuery(
+        `SELECT * FROM tbl_customer WHERE no_hp = '${this.state.form.no_hp}'`,
+      );
+      if (resultHP.rows.length > 0) {
+        status = true;
+        Alert.alert('Nomor HP sudah ada di dalam database offline!');
+      } else {
+        await this.executeQuery(query, data);
+        status = true;
+        toastMessage('Pelanggan berhasil ditambahkan');
+      }
     } catch (error) {
       toastMessage('Pelanggan gagal ditambahkan');
     }
@@ -334,7 +353,7 @@ class Kunjungan extends Component {
     }
   };
 
-  handleCheckNumber = async () => {
+  handleCheckHP = async () => {
     const {no_hp} = this.state.form;
 
     if (no_hp) {
@@ -349,7 +368,7 @@ class Kunjungan extends Component {
 
       try {
         const response = await getData(
-          `/user_m/kunjungan/check/customer/nohp/${no_hp}`,
+          `/user_m/kunjungan/customer/checkhp/${no_hp}`,
         );
         if (response.data.valid === 'exists') {
           this.setState((prevState) => ({
@@ -413,10 +432,63 @@ class Kunjungan extends Component {
     return numInfo;
   };
 
+  _menu = null;
+
+  handleRedirectToProfil = () => {
+    this._menu.hide();
+    NetInfo.fetch().then((state) => {
+      if (state.isConnected) {
+        this.props.navigation.push('Profil');
+      } else {
+        Alert.alert('Anda sedang offline!');
+      }
+    });
+  };
+
+  handleRedirectToDataKunjunganOffline = () => {
+    this._menu.hide();
+    this.props.navigation.push('Pelanggan');
+  };
+
+  handleLogout = () => {
+    this._menu.hide();
+    this.props.handleLogout();
+    setTimeout(() => {
+      this.props.navigation.navigate('Login');
+    }, Alert.alert('Sesi anda telah berakhir, silahkan login kembali'));
+  };
+
   render() {
     const {form, show, dataCheckNumber, onSubmit} = this.state;
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.safeAreaStyle}>
+        <View style={styles.appBar}>
+          <Menu
+            ref={(ref) => {
+              this._menu = ref;
+            }}
+            button={
+              <Text
+                onPress={() => {
+                  this._menu.show();
+                }}>
+                <MaterialCommunityIcons
+                  name="dots-vertical"
+                  size={25}
+                  color="white"
+                />
+              </Text>
+            }>
+            <MenuItem onPress={this.handleRedirectToDataKunjunganOffline}>
+              Pelanggan - Offline
+            </MenuItem>
+            <MenuDivider />
+            <MenuItem onPress={this.handleRedirectToProfil}>
+              Profil saya
+            </MenuItem>
+            <MenuItem onPress={this.handleLogout}>Keluar</MenuItem>
+          </Menu>
+        </View>
         <ScrollView>
           <View style={styles.content}>
             <Spinner visible={onSubmit} textContent="Memproses..." />
@@ -494,7 +566,7 @@ class Kunjungan extends Component {
                           : false
                       }
                       style={styles.button}
-                      onPress={this.handleCheckNumber}
+                      onPress={this.handleCheckHP}
                     />
                     <Text style={styles.smallText}>
                       {this.handleSetNumInfo()}
@@ -580,6 +652,7 @@ class Kunjungan extends Component {
                       value: '',
                       color: 'red',
                     }}
+                    useNativeAndroidPickerStyle={false}
                     items={[
                       {label: 'Islam', value: 'Islam'},
                       {label: 'Katolik', value: 'Katolik'},
@@ -604,6 +677,7 @@ class Kunjungan extends Component {
                       value: '',
                       color: 'red',
                     }}
+                    useNativeAndroidPickerStyle={false}
                     items={[
                       {label: 'Laki-laki', value: 'Laki-laki'},
                       {label: 'Perempuan', value: 'Perempuan'},
@@ -626,7 +700,7 @@ class Kunjungan extends Component {
                   </Text>
 
                   <View>
-                    <Text style={styles.styleForAddresFont}>Alamat</Text>
+                    <Text style={styles.styleForAddresFontLabel}>Alamat</Text>
                     <TextInput
                       style={styles.textArea}
                       multiline={true}
@@ -644,7 +718,7 @@ class Kunjungan extends Component {
                     style={styles.buttonSelectFile}
                     activeOpacity={0.5}
                     onPress={this.handleSelectFile}>
-                    <Text style={styles.buttonTextStyle}>Pilih Foto</Text>
+                    <Text style={styles.buttonSelectFileText}>Pilih Foto</Text>
                   </TouchableOpacity>
 
                   <Button
@@ -659,7 +733,7 @@ class Kunjungan extends Component {
             </Formik>
           </View>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     );
   }
 }
@@ -675,6 +749,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => {
   return {
+    handleLogout: () => dispatch({type: ActionType.IS_LOGOUT}),
     handleConnections: () => dispatch({type: ActionType.IS_CONNECTED}),
   };
 };
@@ -682,12 +757,17 @@ const mapDispatchToProps = (dispatch) => {
 export default connect(mapStateToProps, mapDispatchToProps)(Kunjungan);
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#fff',
-    height: '100%',
-    flexDirection: 'row',
+  safeAreaStyle: {
+    flex: 1,
     justifyContent: 'center',
+  },
+  appBar: {
+    width: '100%',
+    height: '10%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
+    backgroundColor: '#466BD9',
   },
   content: {
     flexDirection: 'column',
@@ -700,8 +780,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderStyle: 'solid',
     borderColor: 'lightgrey',
-    margin: 2,
-    padding: 2,
+    margin: 5,
   },
   textInput: {
     height: 45,
@@ -712,7 +791,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
   },
-  styleForAddresFont: {color: '#7f7f7f'},
+  styleForAddresFontLabel: {
+    color: '#7f7f7f',
+  },
   textArea: {
     height: 100,
     width: '100%',
@@ -724,11 +805,11 @@ const styles = StyleSheet.create({
   },
   textInputDate: {
     width: '80%',
-    padding: 10,
     color: 'lightgrey',
     borderColor: 'lightgrey',
     borderWidth: 1,
     borderRadius: 5,
+    padding: 10,
   },
   smallText: {
     fontSize: 11,
@@ -773,7 +854,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
   },
-  buttonTextStyle: {
+  buttonSelectFileText: {
     color: '#FFFFFF',
     paddingVertical: 10,
     fontSize: 16,

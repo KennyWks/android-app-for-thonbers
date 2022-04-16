@@ -55,7 +55,7 @@ class UpdateProfil extends Component {
       onLoad: true,
     }));
     try {
-      const responseDataUser = await getData('/user_m/saler');
+      const responseDataUser = await getData('/user_m/user/saler');
       this.setState((prevState) => ({
         ...prevState,
         formUpdateProfil: {
@@ -99,7 +99,7 @@ class UpdateProfil extends Component {
 
     try {
       const responseDataUser = await postData(
-        '/user_m/saler/update/profil',
+        '/user_m/user/profil/update',
         formData,
       );
       this.getDataUser();

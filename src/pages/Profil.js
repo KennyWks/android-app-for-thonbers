@@ -48,7 +48,7 @@ class ProfilScreen extends Component {
       onLoad: true,
     }));
     try {
-      const responseDataUser = await getData('/user_m/saler');
+      const responseDataUser = await getData('/user_m/user/saler');
       this.setState((prevState) => ({
         ...prevState,
         detailUser: responseDataUser.data,

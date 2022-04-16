@@ -9,6 +9,7 @@ const BackNavigation = (props) => {
         name="arrow-left-thick"
         activeOpacity={0.5}
         size={20}
+        color="white"
         onPress={() => {
           props.navigation.push(props.page);
         }}

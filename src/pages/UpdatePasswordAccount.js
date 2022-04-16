@@ -61,7 +61,7 @@ class UpdatePasswordAccount extends Component {
 
     try {
       const responseDataUser = await postData(
-        '/user_m/saler/update/password',
+        '/user_m/user/password/update',
         formData,
       );
       this.setState((prevState) => ({

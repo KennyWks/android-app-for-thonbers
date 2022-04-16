@@ -1,7 +1,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const ApiURL = 'https://thonbers.000webhostapp.com';
+export const ApiURL = 'http://10.0.2.2:81/BetaBajual.com/public';
+// export const ApiURL = 'https://thonbers.000webhostapp.com';
 
 const header = {
   Accept: 'application/json, text/plain, */*',
@@ -51,7 +52,7 @@ export const getData = async (path) => {
   }
 };
 
-export const putData = async (path, data) => {
+export const patchData = async (path, data) => {
   const accessToken = await AsyncStorage.getItem('accessToken');
   if (accessToken) {
     token = {
@@ -64,7 +65,7 @@ export const putData = async (path, data) => {
   }
 
   try {
-    const response = await axios.put(ApiURL + path, data, token, header);
+    const response = await axios.patch(ApiURL + path, data, token, header);
     return response;
   } catch (error) {
     throw error;
